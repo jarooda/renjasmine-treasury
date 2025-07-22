@@ -7,7 +7,43 @@ useHead({
   meta: [
     {
       name: "description",
-      content: "Kelola keuangan komunitas dengan mudah dan transparan",
+      content: "Pengelolaan keuangan Perumahan Renjana dan Jasmine",
+    },
+    // Open Graph tags for social media sharing
+    {
+      property: "og:title",
+      content: "Renjana Jasmine - Treasury Management",
+    },
+    {
+      property: "og:description",
+      content: "Pengelolaan keuangan Perumahan Renjana dan Jasmine",
+    },
+    {
+      property: "og:image",
+      content:
+        "https://res.cloudinary.com/dpcjjs0wg/image/upload/v1753176592/meta_zpp2kt.webp",
+    },
+    {
+      property: "og:type",
+      content: "website",
+    },
+    // Twitter Card tags
+    {
+      name: "twitter:card",
+      content: "summary_large_image",
+    },
+    {
+      name: "twitter:title",
+      content: "Renjana Jasmine - Treasury Management",
+    },
+    {
+      name: "twitter:description",
+      content: "Pengelolaan keuangan Perumahan Renjana dan Jasmine",
+    },
+    {
+      name: "twitter:image",
+      content:
+        "https://res.cloudinary.com/dpcjjs0wg/image/upload/v1753176592/meta_zpp2kt.webp",
     },
   ],
 });
