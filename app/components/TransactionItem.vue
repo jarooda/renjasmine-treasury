@@ -49,7 +49,7 @@ const getType = computed(() => {
         </p>
         <div class="flex items-center space-x-2 ml-2">
           <span
-            class="text-xs sm:text-sm font-semibold whitespace-nowrap"
+            class="text-sm sm:text-base font-semibold whitespace-nowrap"
             :class="{
               'text-green-600 dark:text-green-400': getType === 'income',
               'text-red-600 dark:text-red-400': getType === 'expense',
@@ -65,14 +65,14 @@ const getType = computed(() => {
         </div>
       </div>
       <div class="flex items-center justify-between mt-1">
-        <p class="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+        <p class="text-sm sm:text-base text-gray-500 dark:text-gray-400">
           {{ transaction.Kategori }}
 
           <span v-if="transaction.Nama">
             dari {{ transaction.Nama }} - {{ transaction["Nomor Rumah"] }}
           </span>
         </p>
-        <p class="text-xs text-gray-400 dark:text-gray-500">
+        <p class="text-sm text-gray-400 dark:text-gray-500">
           {{ formatDate(transaction.Tanggal) }}
         </p>
       </div>

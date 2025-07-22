@@ -1,18 +1,13 @@
 <script setup lang="ts">
 import { formatCurrency } from "~/utils/formatters";
 
-type _PaymentMonth = {
-  tgl: string;
-  jml: string;
-};
-
 type ParsedResident = {
   id: string;
   name: string;
   perumahan: string;
   nomor: string;
-  startPembayaran?: string; // New field for start payment period
-  payment: Record<string, unknown>; // Dynamic structure based on column headers
+  startPembayaran?: string; // Format: "YYYY/M" (e.g., "2023/1", "2024/11")
+  payment: Record<string, string>; // Flat structure with column keys like "2023/1 Jan (tgl)", "2023/1 Jan (jml)"
 };
 
 interface Props {
@@ -37,66 +32,55 @@ const isValidPayment = (amount: unknown): boolean => {
   return !isNaN(numericValue) && numericValue > 0;
 };
 
-const hasPaymentFields = (
-  obj: unknown,
-): obj is { tgl?: string; jml?: string } => {
-  return obj !== null && typeof obj === "object";
-};
-
-// Parse start payment period (e.g., "2023 Jan") to get year and month
+// Parse start payment period (e.g., "2023/1", "2024/11") to get year and month
 const parseStartPeriod = (startPembayaran?: string) => {
   if (!startPembayaran || !startPembayaran.trim()) return null;
 
-  const match = startPembayaran.trim().match(/^(\d{4})\s+(\w+)$/);
+  const match = startPembayaran.trim().match(/^(\d{4})\/(\d{1,2})$/);
   if (!match) return null;
 
   const [, yearStr, monthStr] = match;
   if (!yearStr || !monthStr) return null;
 
-  return { year: parseInt(yearStr), month: monthStr };
-};
-
-// Get month index for comparison (Jan = 1, Feb = 2, etc.)
-const getMonthIndex = (month: string): number => {
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "Mei",
-    "Jun",
-    "Jul",
-    "Ags",
-    "Sep",
-    "Okt",
-    "Nov",
-    "Des",
-  ];
-  return months.indexOf(month) + 1;
+  return { year: parseInt(yearStr), month: parseInt(monthStr) };
 };
 
 // Check if a payment period should be counted based on start date and current date
 const shouldCountPayment = (
-  year: string,
-  month: string,
-  startPeriod: { year: number; month: string } | null,
+  paymentKey: string,
+  startPeriod: { year: number; month: number } | null,
 ): boolean => {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
   const currentMonthIndex = currentDate.getMonth() + 1; // getMonth() returns 0-11, we need 1-12
 
-  const paymentYear = parseInt(year);
-  const paymentMonthIndex = getMonthIndex(month);
+  // Parse payment key format: "YYYY/M" where M can be 1-12 for months, or >12 for special items
+  const match = paymentKey.match(/^(\d{4})\/(\d+)$/);
+  if (!match) return false;
 
+  const paymentYear = parseInt(match[1]!);
+  const paymentMonth = parseInt(match[2]!);
+
+  // For special items (month > 12), only check year and start period
+  if (paymentMonth > 12) {
+    // Don't count future years
+    if (paymentYear > currentYear) return false;
+
+    // If no start period, count all items up to current year
+    if (!startPeriod) return paymentYear <= currentYear;
+
+    // Only count if it's from the start year or later
+    return paymentYear >= startPeriod.year;
+  }
+
+  // For regular monthly payments (month 1-12)
   // Don't count future payments (after current month)
   if (paymentYear > currentYear) return false;
-  if (paymentYear === currentYear && paymentMonthIndex > currentMonthIndex)
+  if (paymentYear === currentYear && paymentMonth > currentMonthIndex)
     return false;
 
   // If no start period, count all payments up to current month
   if (!startPeriod) return true;
-
-  const startMonthIndex = getMonthIndex(startPeriod.month);
 
   // If payment year is after start year, count it
   if (paymentYear > startPeriod.year) return true;
@@ -105,20 +89,7 @@ const shouldCountPayment = (
   if (paymentYear < startPeriod.year) return false;
 
   // Same year: check if payment month is >= start month
-  return paymentMonthIndex >= startMonthIndex;
-};
-
-// Check if Rapat RT should be counted based on start date
-const shouldCountRapatRT = (
-  rapatYear: string,
-  startPeriod: { year: number; month: string } | null,
-): boolean => {
-  if (!startPeriod) return true; // If no start period, count all Rapat RT
-
-  const rapatYearNum = parseInt(rapatYear);
-
-  // Only count Rapat RT if it's from the start year or later
-  return rapatYearNum >= startPeriod.year;
+  return paymentMonth >= startPeriod.month;
 };
 
 const getPaymentSummary = (resident: ParsedResident) => {
@@ -127,30 +98,34 @@ const getPaymentSummary = (resident: ParsedResident) => {
 
   const startPeriod = parseStartPeriod(resident.startPembayaran);
 
-  // Iterate through all payment categories
-  Object.entries(resident.payment).forEach(([categoryKey, categoryValue]) => {
-    // Skip Rapat RT from counting - exclude from payment summary
-    if (categoryKey === "Rapat") {
+  // Parse new column format: "YYYY/M MonthName (jml)" or "YYYY/13 Rapat RT (jml)"
+  Object.entries(resident.payment).forEach(([columnKey, columnValue]) => {
+    // Only process amount columns (ending with "(jml)")
+    if (!columnKey.endsWith("(jml)")) return;
+
+    // Extract the payment key (everything before " (jml)")
+    const paymentKeyMatch = columnKey.match(/^(.+)\s+\(jml\)$/);
+    if (!paymentKeyMatch) return;
+
+    const paymentKey = paymentKeyMatch[1]!;
+
+    // Skip Rapat RT from counting in summary
+    if (paymentKey.includes("Rapat RT")) {
       return;
     }
 
-    if (
-      categoryValue &&
-      typeof categoryValue === "object" &&
-      /^\d{4}$/.test(categoryKey)
-    ) {
-      // Handle year categories (2023, 2024, 2025, etc.)
-      Object.entries(categoryValue).forEach(([monthKey, monthValue]) => {
-        if (hasPaymentFields(monthValue)) {
-          // Only count payments from start date onwards
-          if (shouldCountPayment(categoryKey, monthKey, startPeriod)) {
-            total++;
-            if (isValidPayment(monthValue.jml)) {
-              paid++;
-            }
-          }
-        }
-      });
+    // Extract YYYY/M part from the key
+    const keyMatch = paymentKey.match(/^(\d{4}\/\d+)/);
+    if (!keyMatch) return;
+
+    const periodKey = keyMatch[1]!;
+
+    // Only count payments from start date onwards
+    if (shouldCountPayment(periodKey, startPeriod)) {
+      total++;
+      if (isValidPayment(columnValue)) {
+        paid++;
+      }
     }
   });
 
@@ -167,89 +142,135 @@ const getPaymentHistory = (resident: ParsedResident) => {
     date: string;
     amount: string;
     isPaid: boolean;
-    shouldCount: boolean; // New field to indicate if payment should be counted
+    shouldCount: boolean;
   }> = [];
 
   const startPeriod = parseStartPeriod(resident.startPembayaran);
 
-  // Collect all year-month payments
-  const yearEntries = Object.entries(resident.payment)
-    .filter(([key]) => /^\d{4}$/.test(key)) // Only year keys
-    .sort(([a], [b]) => parseInt(b) - parseInt(a)); // Sort years descending
+  // Helper function to get month name from number
+  const getMonthName = (monthNum: number): string => {
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "Mei",
+      "Jun",
+      "Jul",
+      "Ags",
+      "Sep",
+      "Okt",
+      "Nov",
+      "Des",
+    ];
+    return months[monthNum - 1] || `Month${monthNum}`;
+  };
 
-  yearEntries.forEach(([year, yearValue]) => {
-    if (yearValue && typeof yearValue === "object") {
-      // Sort months to display in reverse chronological order within the year
-      const monthOrder = [
-        "Des",
-        "Nov",
-        "Okt",
-        "Sep",
-        "Ags",
-        "Jul",
-        "Jun",
-        "Mei",
-        "Apr",
-        "Mar",
-        "Feb",
-        "Jan",
-      ];
-      const monthEntries = Object.entries(yearValue).sort(([a], [b]) => {
-        const indexA = monthOrder.indexOf(a);
-        const indexB = monthOrder.indexOf(b);
-        return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
-      });
+  // Collect payment data from new column format
+  const paymentMap = new Map<string, { date: string; amount: string }>();
 
-      monthEntries.forEach(([month, monthValue]) => {
-        if (hasPaymentFields(monthValue)) {
-          const isPaid = isValidPayment(monthValue.jml);
-          const shouldCount = shouldCountPayment(year, month, startPeriod);
+  // First pass: collect all date and amount data
+  Object.entries(resident.payment).forEach(([columnKey, columnValue]) => {
+    if (typeof columnValue !== "string") return;
 
-          payments.push({
-            period: `${month} ${year}`,
-            date: monthValue.tgl || "",
-            amount: monthValue.jml || "",
-            isPaid,
-            shouldCount,
-          });
-        }
-      });
+    // Parse column format: "YYYY/M MonthName (tgl)" or "YYYY/M MonthName (jml)" or "YYYY/13 Rapat RT (tgl/jml)"
+    const columnMatch = columnKey.match(/^(.+)\s+\((tgl|jml)\)$/);
+    if (!columnMatch) return;
+
+    const [, paymentKey, fieldType] = columnMatch;
+    if (!paymentKey) return;
+
+    if (!paymentMap.has(paymentKey)) {
+      paymentMap.set(paymentKey, { date: "", amount: "" });
+    }
+
+    const paymentData = paymentMap.get(paymentKey)!;
+    if (fieldType === "tgl") {
+      paymentData.date = columnValue.trim();
+    } else if (fieldType === "jml") {
+      paymentData.amount = columnValue.trim();
     }
   });
 
-  // Add Rapat RT if exists (now with year keys)
-  const rapatCategory = resident.payment.Rapat as Record<string, unknown>;
-  if (rapatCategory && typeof rapatCategory === "object") {
-    Object.entries(rapatCategory).forEach(([rapatYear, rapatValue]) => {
-      if (hasPaymentFields(rapatValue)) {
-        const isRapatPaid = isValidPayment(rapatValue.jml);
-        const shouldCount = shouldCountRapatRT(rapatYear, startPeriod);
+  // Second pass: convert to payment history
+  paymentMap.forEach((data, paymentKey) => {
+    // Parse the payment key to extract period info
+    const keyMatch = paymentKey.match(/^(\d{4})\/(\d+)(?:\s+(.+))?$/);
+    if (!keyMatch) return;
 
-        // Insert Rapat RT in chronological position based on year
-        const yearNum = parseInt(rapatYear);
-        let insertIndex = payments.findIndex((p) => {
-          const match = p.period.match(/(\d{4})$/);
-          if (match && match[1]) {
-            const paymentYear = parseInt(match[1]);
-            return paymentYear < yearNum;
-          }
-          return false;
-        });
+    const [, year, monthNum, description] = keyMatch;
+    const monthNumInt = parseInt(monthNum!);
 
-        if (insertIndex === -1) {
-          insertIndex = payments.length;
-        }
+    let displayPeriod: string;
+    let periodKey: string;
 
-        payments.splice(insertIndex, 0, {
-          period: `Rapat RT ${rapatYear}`,
-          date: rapatValue.tgl || "",
-          amount: rapatValue.jml || "",
-          isPaid: isRapatPaid,
-          shouldCount,
-        });
-      }
+    if (monthNumInt > 12) {
+      // Special items like Rapat RT
+      displayPeriod = description
+        ? `${description} ${year}`
+        : `Special ${year}`;
+      periodKey = `${year}/${monthNum}`;
+    } else {
+      // Regular monthly payments
+      const monthName = description || getMonthName(monthNumInt);
+      displayPeriod = `${monthName} ${year}`;
+      periodKey = `${year}/${monthNum}`;
+    }
+
+    const isPaid = isValidPayment(data.amount);
+    const shouldCount = shouldCountPayment(periodKey, startPeriod);
+
+    payments.push({
+      period: displayPeriod,
+      date: data.date,
+      amount: data.amount,
+      isPaid,
+      shouldCount,
     });
-  }
+  });
+
+  // Sort payments by year and month (most recent first)
+  payments.sort((a, b) => {
+    const extractYearMonth = (period: string) => {
+      if (period.includes("Rapat RT")) {
+        const match = period.match(/(\d{4})$/);
+        return match
+          ? { year: parseInt(match[1]!), month: 13 }
+          : { year: 0, month: 0 };
+      }
+
+      const match = period.match(/(\w+)\s+(\d{4})$/);
+      if (!match) return { year: 0, month: 0 };
+
+      const monthName = match[1]!;
+      const year = parseInt(match[2]!);
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "Mei",
+        "Jun",
+        "Jul",
+        "Ags",
+        "Sep",
+        "Okt",
+        "Nov",
+        "Des",
+      ];
+      const month = months.indexOf(monthName) + 1;
+
+      return { year, month: month || 0 };
+    };
+
+    const aData = extractYearMonth(a.period);
+    const bData = extractYearMonth(b.period);
+
+    if (aData.year !== bData.year) {
+      return bData.year - aData.year; // Most recent year first
+    }
+    return bData.month - aData.month; // Most recent month first
+  });
 
   return payments;
 };
@@ -320,6 +341,32 @@ const getGroupedPaymentHistory = (resident: ParsedResident) => {
 
   return items;
 };
+
+// Helper function to format start payment period for display
+const formatStartPeriodDisplay = (startPembayaran?: string): string => {
+  if (!startPembayaran) return "";
+
+  const parsed = parseStartPeriod(startPembayaran);
+  if (!parsed) return startPembayaran;
+
+  const months = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
+
+  const monthName = months[parsed.month - 1] || `Bulan ${parsed.month}`;
+  return `${monthName} ${parsed.year}`;
+};
 </script>
 
 <template>
@@ -381,7 +428,8 @@ const getGroupedPaymentHistory = (resident: ParsedResident) => {
             class="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg"
           >
             <p class="text-sm text-blue-800 dark:text-blue-200">
-              <strong>Mulai Pembayaran:</strong> {{ resident.startPembayaran }}
+              <strong>Mulai Pembayaran:</strong>
+              {{ formatStartPeriodDisplay(resident.startPembayaran) }}
             </p>
           </div>
 
@@ -497,3 +545,22 @@ const getGroupedPaymentHistory = (resident: ParsedResident) => {
     </template>
   </UModal>
 </template>
+
+<!--
+ * Updated ResidentDetailModal to handle new column format:
+ * 
+ * Old format:
+ * - startPembayaran: "2023 Jan"
+ * - payment structure: nested year/month objects
+ * 
+ * New format:
+ * - startPembayaran: "2023/1", "2024/11", etc.
+ * - column names: "2023/1 Jan (tgl)", "2023/1 Jan (jml)", "2023/13 Rapat RT (tgl)", "2023/13 Rapat RT (jml)"
+ * - payment structure: flat with column keys as properties
+ * 
+ * Key changes:
+ * 1. parseStartPeriod now handles "YYYY/M" format
+ * 2. shouldCountPayment works with period keys like "2023/1" or "2023/13"
+ * 3. Payment data parsing handles flat column structure
+ * 4. Numbers >12 in month position indicate special items (like Rapat RT)
+ -->

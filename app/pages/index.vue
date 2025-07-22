@@ -73,6 +73,13 @@ type WebSummary = {
   Theme: string;
 };
 
+// Helper function to validate theme
+const isValidTheme = (
+  theme: string,
+): theme is "blue" | "cyan" | "green" | "red" => {
+  return ["blue", "cyan", "green", "red"].includes(theme);
+};
+
 const webSummaries = reactive<WebSummary[]>([]);
 const totalBalance = ref(0);
 
@@ -149,12 +156,12 @@ if (historyError.value) {
           class="flex justify-between lg:flex-col items-start lg:items-end text-left lg:text-right gap-1"
         >
           <p
-            class="text-sm sm:text-base font-semibold text-gray-700 dark:text-gray-300 pt-2 lg:pt-0"
+            class="text-base sm:text-lg font-semibold text-gray-700 dark:text-gray-300 pt-2 lg:pt-0"
           >
             Total Saldo
           </p>
           <h2
-            class="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600 dark:text-blue-400"
+            class="text-2xl sm:text-3xl lg:text-4xl font-bold text-blue-600 dark:text-blue-400"
           >
             {{
               isSummaryLoading
@@ -185,7 +192,7 @@ if (historyError.value) {
           :balance="summary.Saldo"
           :icon="`i-mdi-${summary.Icon}`"
           :detail-link="summary['Path Detail']"
-          :theme="summary.Theme"
+          :theme="isValidTheme(summary.Theme) ? summary.Theme : 'blue'"
           card-class="sm:col-span-2 lg:col-span-1"
         />
 
@@ -217,7 +224,7 @@ if (historyError.value) {
             </h3>
             <UIcon
               name="i-mdi-clock-outline"
-              class="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 dark:text-gray-400"
+              class="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 dark:text-gray-400"
             />
           </div>
         </template>
@@ -234,7 +241,7 @@ if (historyError.value) {
 
         <template #footer>
           <NuxtLink to="/kas-umum">
-            <UButton variant="solid" block size="sm">
+            <UButton variant="solid" block size="lg">
               Lihat Semua Transaksi
             </UButton>
           </NuxtLink>

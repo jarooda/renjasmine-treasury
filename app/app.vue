@@ -33,17 +33,24 @@ watch(
         <div class="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div class="flex justify-between items-center h-14 sm:h-16">
             <!-- Logo/Brand -->
-            <div class="flex-shrink-0">
-              <NuxtLink to="/" class="flex items-center space-x-2">
+            <div class="flex-shrink-0 min-w-0">
+              <NuxtLink
+                to="/"
+                class="flex items-center space-x-1 sm:space-x-2 min-w-0"
+              >
                 <div
-                  class="w-8 h-8 bg-gradient-to-br from-blue-500 to-green-600 rounded-lg flex items-center justify-center"
+                  class="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-500 to-green-600 rounded-lg flex items-center justify-center flex-shrink-0"
                 >
-                  <UIcon name="i-mdi-cloud-print" class="w-5 h-5 text-white" />
+                  <UIcon
+                    name="i-mdi-cloud-print"
+                    class="w-4 h-4 sm:w-5 sm:h-5 text-white"
+                  />
                 </div>
                 <h1
-                  class="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100"
+                  class="text-xs sm:text-lg md:text-xl font-bold text-gray-800 dark:text-gray-100 truncate min-w-0"
                 >
-                  Perum Renjana & Jasmine
+                  <span class="hidden sm:inline">Perum Renjana & Jasmine</span>
+                  <span class="sm:hidden">Renjana & Jasmine</span>
                 </h1>
               </NuxtLink>
             </div>
@@ -98,7 +105,7 @@ watch(
               <!-- Dark mode toggle -->
               <UButton
                 variant="ghost"
-                size="sm"
+                size="lg"
                 class="p-2"
                 @click="toggleDarkMode"
               >
@@ -107,12 +114,12 @@ watch(
                     :name="
                       isDark ? 'i-mdi-weather-sunny' : 'i-mdi-weather-night'
                     "
-                    class="w-4 h-4 sm:w-5 sm:h-5"
+                    class="w-5 h-5 sm:w-6 sm:h-6"
                   />
                   <template #fallback>
                     <UIcon
                       name="i-mdi-weather-night"
-                      class="w-4 h-4 sm:w-5 sm:h-5"
+                      class="w-5 h-5 sm:w-6 sm:h-6"
                     />
                   </template>
                 </ClientOnly>
@@ -121,13 +128,13 @@ watch(
               <!-- Mobile menu button -->
               <UButton
                 variant="ghost"
-                size="sm"
+                size="lg"
                 class="lg:hidden p-2"
                 @click="mobileMenuOpen = !mobileMenuOpen"
               >
                 <UIcon
                   :name="mobileMenuOpen ? 'i-mdi-close' : 'i-mdi-menu'"
-                  class="w-5 h-5"
+                  class="w-6 h-6"
                 />
               </UButton>
             </div>
@@ -225,7 +232,7 @@ watch(
               <p class="text-sm text-gray-600 dark:text-gray-400">
                 © 2025 Perum Renjana & Jasmine Treasury. All rights reserved.
               </p>
-              <p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+              <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">
                 Licensed under MIT License
               </p>
             </div>
@@ -235,7 +242,9 @@ watch(
               <p class="text-sm text-gray-600 dark:text-gray-400">
                 Developed by <span class="font-medium">Jalu Wibowo Aji</span>
               </p>
-              <div class="flex items-center space-x-4 text-xs">
+              <div
+                class="flex flex-col sm:flex-row items-center sm:space-x-4 space-y-2 sm:space-y-0 text-sm"
+              >
                 <a
                   href="mailto:jaluwibowoaji@gmail.com"
                   class="text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors flex items-center space-x-1"

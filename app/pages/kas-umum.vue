@@ -155,47 +155,47 @@ watch(itemsPerPage, () => {
             <thead class="bg-gray-50 dark:bg-gray-800">
               <tr>
                 <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   No
                 </th>
                 <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   Tanggal
                 </th>
                 <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   Uraian
                 </th>
                 <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   Nama
                 </th>
                 <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   No. Rumah
                 </th>
                 <th
-                  class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   Kategori
                 </th>
                 <th
-                  class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   Masuk
                 </th>
                 <th
-                  class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   Keluar
                 </th>
                 <th
-                  class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"
                 >
                   Saldo
                 </th>
@@ -379,7 +379,7 @@ watch(itemsPerPage, () => {
               class="grid grid-cols-3 gap-4 pt-3 border-t border-gray-200 dark:border-gray-700"
             >
               <div class="text-center">
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">
                   Masuk
                 </p>
                 <p class="text-sm font-medium">
@@ -396,7 +396,7 @@ watch(itemsPerPage, () => {
                 </p>
               </div>
               <div class="text-center">
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">
                   Keluar
                 </p>
                 <p class="text-sm font-medium">
@@ -413,7 +413,7 @@ watch(itemsPerPage, () => {
                 </p>
               </div>
               <div class="text-center">
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">
                   Saldo
                 </p>
                 <p
@@ -470,7 +470,7 @@ watch(itemsPerPage, () => {
               v-model:page="currentPage"
               :page-count="totalPages"
               :total="kasUmumData.length"
-              size="sm"
+              size="lg"
               show-last
               show-first
             />
