@@ -413,7 +413,7 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
       <div v-if="resident" class="space-y-6">
         <!-- Payment Summary -->
         <div
-          class="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
+          class="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg"
         >
           <div class="text-center">
             <div class="text-2xl font-bold text-green-600 dark:text-green-400">
@@ -427,20 +427,6 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
             </div>
             <div class="text-sm text-gray-600 dark:text-gray-400">
               Belum Bayar
-            </div>
-          </div>
-          <div class="text-center">
-            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {{
-                (
-                  (getPaymentSummary(resident).paid /
-                    getPaymentSummary(resident).total) *
-                  100
-                ).toFixed(0)
-              }}%
-            </div>
-            <div class="text-sm text-gray-600 dark:text-gray-400">
-              Persentase
             </div>
           </div>
         </div>

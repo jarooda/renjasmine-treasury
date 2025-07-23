@@ -147,8 +147,8 @@ const perumahanOptions = computed(() => {
 });
 
 const sortOptions = computed(() => [
-  { label: "Default", value: "default" },
-  { label: "Persentase", value: "persentase" },
+  { label: "Urutan Default", value: "default" },
+  { label: "Tunggakan Terbanyak", value: "tunggakan" },
 ]);
 
 const filteredResidents = computed(() => {
@@ -170,21 +170,29 @@ const filteredResidents = computed(() => {
   }
 
   // Apply sorting
-  if (sortBy.value === "persentase") {
+  if (sortBy.value === "tunggakan") {
     filtered = [...filtered].sort((a, b) => {
+      // Always put '(Kosong)' at the bottom
+      const aKosong = a.name.includes("(Kosong)");
+      const bKosong = b.name.includes("(Kosong)");
+      if (aKosong && !bKosong) return 1;
+      if (!aKosong && bKosong) return -1;
+      if (aKosong && bKosong) return 0;
+      // Sort by unpaid amount in descending order (highest unpaid first)
       const summaryA = getPaymentSummary(a);
       const summaryB = getPaymentSummary(b);
-
-      const percentageA =
-        summaryA.total > 0 ? (summaryA.paid / summaryA.total) * 100 : 0;
-      const percentageB =
-        summaryB.total > 0 ? (summaryB.paid / summaryB.total) * 100 : 0;
-
-      // Sort in descending order (highest percentage first)
-      return percentageB - percentageA;
+      return summaryB.unpaid - summaryA.unpaid;
+    });
+  } else {
+    // Default sort: keep original order, but move '(Kosong)' to bottom
+    filtered = [...filtered].sort((a, b) => {
+      const aKosong = a.name.includes("(Kosong)");
+      const bKosong = b.name.includes("(Kosong)");
+      if (aKosong && !bKosong) return 1;
+      if (!aKosong && bKosong) return -1;
+      return 0;
     });
   }
-  // For "default", keep original order (no additional sorting)
 
   return filtered;
 });
@@ -539,30 +547,17 @@ watch(
             </div>
             <div class="flex items-center justify-between sm:justify-end gap-3">
               <div
-                v-if="!resident.name.includes('(Kosong)')"
+                v-if="
+                  !resident.name.includes('(Kosong)') &&
+                  getPaymentSummary(resident).unpaid > 0
+                "
                 class="flex-1 sm:flex-none"
               >
                 <div class="flex items-center justify-between sm:block">
                   <div
                     class="text-sm sm:text-right font-medium text-gray-900 dark:text-gray-100"
                   >
-                    {{ getPaymentSummary(resident).paid }}/{{
-                      getPaymentSummary(resident).total
-                    }}
-                    bulan
-                  </div>
-                  <div
-                    class="text-sm sm:text-right text-gray-500 dark:text-gray-400"
-                  >
-                    {{
-                      getPaymentSummary(resident).total > 0
-                        ? (
-                            (getPaymentSummary(resident).paid /
-                              getPaymentSummary(resident).total) *
-                            100
-                          ).toFixed(0)
-                        : 0
-                    }}% terbayar
+                    Belum bayar {{ getPaymentSummary(resident).unpaid }} bulan
                   </div>
                 </div>
               </div>
