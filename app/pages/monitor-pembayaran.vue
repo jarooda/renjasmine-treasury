@@ -206,32 +206,6 @@ const parseStartPeriod = (startPembayaran?: string) => {
   return { year: parseInt(yearStr), month: parseInt(monthStr) };
 };
 
-// Format start payment date for display (e.g., "2023/1" -> "Jan 2023")
-const formatStartPembayaran = (startPembayaran?: string): string => {
-  if (!startPembayaran || !startPembayaran.trim()) return "";
-
-  const parsed = parseStartPeriod(startPembayaran);
-  if (!parsed) return startPembayaran; // Return original if parsing fails
-
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-
-  const monthName = monthNames[parsed.month - 1]; // Convert 1-based to 0-based index
-  return `${monthName} ${parsed.year}`;
-};
-
 // Check if a payment period should be counted based on start date and current date
 const shouldCountPayment = (
   paymentKey: string,
@@ -561,15 +535,6 @@ watch(
                 <p class="text-sm text-gray-600 dark:text-gray-400">
                   {{ resident.perumahan }} - No. {{ resident.nomor }}
                 </p>
-                <span
-                  v-if="
-                    resident.startPembayaran &&
-                    !resident.name.includes('(Kosong)')
-                  "
-                  class="inline-block w-fit px-2 py-0.5 text-xs sm:text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full"
-                >
-                  Mulai: {{ formatStartPembayaran(resident.startPembayaran) }}
-                </span>
               </div>
             </div>
             <div class="flex items-center justify-between sm:justify-end gap-3">
