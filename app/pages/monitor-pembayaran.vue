@@ -286,10 +286,10 @@ const getResidentNameColor = (resident: ParsedResident): string => {
     return "text-gray-900 dark:text-gray-100";
   } else if (difference <= 6) {
     // 4-6 months behind: Warning (yellow/orange)
-    return "text-amber-600 dark:text-amber-400";
+    return "text-orange-600 dark:text-orange-400";
   } else {
     // 7+ months behind: Danger (red)
-    return "text-red-600 dark:text-red-400";
+    return "text-rose-600 dark:text-rose-400";
   }
 };
 
@@ -555,12 +555,14 @@ watch(
               >
                 <div class="flex items-center justify-between sm:block">
                   <div
-                    class="text-sm sm:text-right font-medium text-gray-900 dark:text-gray-100"
+                    class="text-sm sm:text-right font-medium"
+                    :class="getResidentNameColor(resident)"
                   >
                     Belum bayar {{ getPaymentSummary(resident).unpaid }} bulan
                   </div>
                 </div>
               </div>
+              <div v-else class="w-1 h-1" />
               <UIcon
                 v-if="!resident.name.includes('(Kosong)')"
                 name="i-mdi-chevron-right"
