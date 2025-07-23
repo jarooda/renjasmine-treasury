@@ -92,6 +92,29 @@ const shouldCountPayment = (
   return paymentMonth >= startPeriod.month;
 };
 
+// Helper function to check if payment is in future month
+const isFuturePayment = (paymentKey: string): boolean => {
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonthIndex = currentDate.getMonth() + 1;
+
+  const match = paymentKey.match(/^(\d{4})\/(\d+)$/);
+  if (!match) return false;
+
+  const paymentYear = parseInt(match[1]!);
+  const paymentMonth = parseInt(match[2]!);
+
+  // For special items (month > 12), not considered future
+  if (paymentMonth > 12) return false;
+
+  // Check if it's a future payment
+  if (paymentYear > currentYear) return true;
+  if (paymentYear === currentYear && paymentMonth > currentMonthIndex)
+    return true;
+
+  return false;
+};
+
 const getPaymentSummary = (resident: ParsedResident) => {
   let paid = 0;
   let total = 0;
@@ -143,6 +166,7 @@ const getPaymentHistory = (resident: ParsedResident) => {
     amount: string;
     isPaid: boolean;
     shouldCount: boolean;
+    isFuture: boolean;
   }> = [];
 
   const startPeriod = parseStartPeriod(resident.startPembayaran);
@@ -219,6 +243,7 @@ const getPaymentHistory = (resident: ParsedResident) => {
 
     const isPaid = isValidPayment(data.amount);
     const shouldCount = shouldCountPayment(periodKey, startPeriod);
+    const isFuture = isFuturePayment(periodKey);
 
     payments.push({
       period: displayPeriod,
@@ -226,6 +251,7 @@ const getPaymentHistory = (resident: ParsedResident) => {
       amount: data.amount,
       isPaid,
       shouldCount,
+      isFuture,
     });
   });
 
@@ -285,6 +311,7 @@ const getGroupedPaymentHistory = (resident: ParsedResident) => {
       amount: string;
       isPaid: boolean;
       shouldCount: boolean;
+      isFuture: boolean;
     }>
   >();
 
@@ -481,7 +508,9 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
                     :class="[
                       payment.isPaid
                         ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                        : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',
+                        : payment.isFuture || payment.shouldCount
+                          ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                          : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
                       !payment.shouldCount ? 'opacity-50' : '',
                     ]"
                   >
@@ -490,26 +519,24 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
                         :name="
                           payment.isPaid
                             ? 'i-mdi-check-circle'
-                            : 'i-mdi-clock-outline'
+                            : payment.isFuture || payment.shouldCount
+                              ? 'i-mdi-clock-outline'
+                              : 'i-mdi-minus-circle-outline'
                         "
                         :class="
                           payment.isPaid
                             ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
+                            : payment.isFuture || payment.shouldCount
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-gray-400 dark:text-gray-500'
                         "
                         class="w-5 h-5"
                       />
                       <div>
                         <div
-                          class="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2"
+                          class="font-medium text-gray-900 dark:text-gray-100"
                         >
                           {{ payment.period }}
-                          <span
-                            v-if="!payment.shouldCount"
-                            class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded"
-                          >
-                            Tidak dihitung
-                          </span>
                         </div>
                         <div
                           v-if="payment.isPaid && payment.date"
@@ -525,13 +552,17 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
                         :class="
                           payment.isPaid
                             ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
+                            : payment.isFuture || payment.shouldCount
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-gray-500 dark:text-gray-400'
                         "
                       >
                         {{
                           payment.isPaid
                             ? formatCurrency(payment.amount)
-                            : "Belum Bayar"
+                            : payment.isFuture || payment.shouldCount
+                              ? "Belum Bayar"
+                              : "Tidak Masuk Hitungan"
                         }}
                       </div>
                     </div>
