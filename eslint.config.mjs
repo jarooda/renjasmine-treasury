@@ -6,6 +6,7 @@ export default withNuxt(
   [
     {
       rules: {
+        "no-console": "error",
         "vue/block-order": [
           "error",
           {

@@ -50,6 +50,9 @@ const searchQuery = ref("");
 const selectedPerumahan = ref("all");
 const sortBy = ref("default");
 
+// Get current year for consistent SSR/client rendering
+const currentYear = new Date().getFullYear();
+
 // Parse raw data into structured format
 const parseResidentData = (rawData: MonitoringKas[]): ParsedResident[] => {
   if (rawData.length === 0) return [];
@@ -60,9 +63,15 @@ const parseResidentData = (rawData: MonitoringKas[]): ParsedResident[] => {
 
   const allColumns = Object.keys(sampleResident);
 
-  return rawData.map((resident) => {
+  return rawData.map((resident, index) => {
+    // Create a more reliable ID - use No if available, otherwise use index + name combination
+    const id =
+      resident.No && resident.No.toString().trim() !== ""
+        ? resident.No.toString()
+        : `${index}-${resident["Nama Warga"]?.replace(/\s+/g, "-").toLowerCase() || "unknown"}`;
+
     const parsed: ParsedResident = {
-      id: resident.No,
+      id: id,
       name: resident["Nama Warga"],
       perumahan: resident.Perumahan,
       nomor: resident["Nomor Rumah"],
@@ -98,6 +107,9 @@ const parseResidentData = (rawData: MonitoringKas[]): ParsedResident[] => {
 const overlay = useOverlay();
 const modal = overlay.create(LazyResidentDetailModal);
 
+// Router for URL management
+const route = useRoute();
+
 // Show error toast
 const showError = () => {
   const toast = useToast();
@@ -118,7 +130,6 @@ const {
 });
 
 if (error.value) {
-  console.error("Error fetching monitoring data:", error.value);
   showError();
 } else if (monitoringData.value) {
   residents.splice(0, residents.length, ...monitoringData.value.data);
@@ -333,13 +344,88 @@ const getPaymentSummary = (resident: ParsedResident) => {
 // Removed old _getPaymentHistory function - payment history is handled in ResidentDetailModal
 
 const selectResident = async (resident: ParsedResident) => {
+  // Update URL with resident ID using history.replaceState (client-side only)
+  if (import.meta.client) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("detail", String(resident.id)); // Ensure it's a string
+    window.history.replaceState({}, "", url.toString());
+  }
+
+  // Open modal
   const instance = modal.open({
     resident: resident,
   });
 
-  // Wait for modal to close
-  await instance.result;
+  // Wait for modal to close and then clean up URL
+  try {
+    await instance.result;
+  } finally {
+    // Remove detail query parameter when modal closes (client-side only)
+    if (import.meta.client) {
+      const urlClean = new URL(window.location.href);
+      urlClean.searchParams.delete("detail");
+      window.history.replaceState({}, "", urlClean.toString());
+    }
+  }
 };
+
+// Watch for URL changes and auto-open modal if detail parameter exists
+watch(
+  () => route.query.detail,
+  async (detailId) => {
+    if (detailId && parsedResidents.length > 0) {
+      const resident = parsedResidents.find((r) => r.id === detailId);
+      if (resident) {
+        const instance = modal.open({
+          resident: resident,
+        });
+
+        // Wait for modal to close and then clean up URL
+        try {
+          await instance.result;
+        } finally {
+          // Remove detail query parameter when modal closes (client-side only)
+          if (import.meta.client) {
+            const urlClean = new URL(window.location.href);
+            urlClean.searchParams.delete("detail");
+            window.history.replaceState({}, "", urlClean.toString());
+          }
+        }
+      }
+    }
+  },
+  { immediate: true },
+);
+
+// Also watch for when parsedResidents data becomes available
+watch(
+  () => parsedResidents.length,
+  () => {
+    const detailId = route.query.detail;
+    if (detailId && parsedResidents.length > 0) {
+      const resident = parsedResidents.find((r) => r.id === detailId);
+      if (resident) {
+        nextTick(async () => {
+          const instance = modal.open({
+            resident: resident,
+          });
+
+          // Wait for modal to close and then clean up URL
+          try {
+            await instance.result;
+          } finally {
+            // Remove detail query parameter when modal closes (client-side only)
+            if (import.meta.client) {
+              const urlClean = new URL(window.location.href);
+              urlClean.searchParams.delete("detail");
+              window.history.replaceState({}, "", urlClean.toString());
+            }
+          }
+        });
+      }
+    }
+  },
+);
 </script>
 
 <template>
@@ -365,7 +451,7 @@ const selectResident = async (resident: ParsedResident) => {
         </h1>
         <p class="text-gray-600 dark:text-gray-400">
           Pantau status pembayaran kas warga dari tahun 2023 hingga
-          {{ new Date().getFullYear() }}
+          {{ currentYear }}
         </p>
       </div>
 
@@ -409,6 +495,7 @@ const selectResident = async (resident: ParsedResident) => {
         title="Error"
         description="Gagal memuat data pembayaran kas"
         class="mb-6"
+        icon="i-mdi-alert-circle"
       />
 
       <!-- Resident List -->

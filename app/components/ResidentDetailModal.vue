@@ -371,7 +371,7 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
 
 <template>
   <UModal
-    :close="{ onClick: () => emit('close', false) }"
+    :close="{ onClick: () => emit('close', false), icon: 'i-mdi-close' }"
     :title="`Detail Pembayaran - ${resident?.name || ''}`"
     :description="`${resident?.perumahan || ''} - Rumah No. ${
       resident?.nomor || ''

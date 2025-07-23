@@ -80,7 +80,7 @@ const isValidTheme = (
   return ["blue", "cyan", "green", "red"].includes(theme);
 };
 
-const webSummaries = reactive<WebSummary[]>([]);
+const webSummaries = ref<WebSummary[]>([]);
 const totalBalance = ref(0);
 
 const {
@@ -94,8 +94,8 @@ const {
 if (error.value) {
   showError();
 } else if (summaryData.value) {
-  webSummaries.splice(0, webSummaries.length, ...summaryData.value.data);
-  totalBalance.value = webSummaries.reduce((total, summary) => {
+  webSummaries.value = summaryData.value.data;
+  totalBalance.value = webSummaries.value.reduce((total, summary) => {
     // Parse the Saldo string to number, removing any currency formatting
     const saldoNumber = parseFloat(summary.Saldo.replace(/[^\d.-]/g, "")) || 0;
     return total + saldoNumber;
@@ -114,7 +114,10 @@ type FiveLatest = {
   Saldo: string;
 };
 
-const fiveLatest = reactive<FiveLatest[]>([]);
+const fiveLatest = ref<FiveLatest[]>([]);
+
+// Get current year consistently on both server and client
+const currentYear = new Date().getFullYear();
 
 const {
   data: historyData,
@@ -127,7 +130,7 @@ const {
 if (historyError.value) {
   showError();
 } else if (historyData.value) {
-  fiveLatest.splice(0, fiveLatest.length, ...historyData.value.data);
+  fiveLatest.value = historyData.value.data;
 }
 </script>
 
@@ -176,6 +179,22 @@ if (historyError.value) {
       <div
         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8"
       >
+        <HomeCard
+          title="Monitoring Kas"
+          icon="i-mdi-security-camera"
+          :show-data="false"
+          detail-link="/monitor-pembayaran"
+          theme="red"
+          card-class="sm:col-span-2 lg:col-span-1"
+        >
+          <p class="text-gray-500 dark:text-gray-400 text-sm h-[76px]">
+            Monitor pembayaran kas warga dari tahun
+            <span class="font-semibold">2023</span> hingga
+            <span class="font-semibold">{{ currentYear }}</span
+            >.
+          </p>
+        </HomeCard>
+
         <template v-if="isSummaryLoading">
           <USkeleton
             v-for="count in 3"
@@ -195,22 +214,6 @@ if (historyError.value) {
           :theme="isValidTheme(summary.Theme) ? summary.Theme : 'blue'"
           card-class="sm:col-span-2 lg:col-span-1"
         />
-
-        <HomeCard
-          title="Monitoring Kas"
-          icon="i-mdi-security-camera"
-          :show-data="false"
-          detail-link="/monitor-pembayaran"
-          theme="red"
-          card-class="sm:col-span-2 lg:col-span-1"
-        >
-          <p class="text-gray-500 dark:text-gray-400 text-sm h-[76px]">
-            Monitor pembayaran kas warga dari tahun
-            <span class="font-semibold">2023</span> hingga
-            <span class="font-semibold">{{ new Date().getFullYear() }}</span
-            >.
-          </p>
-        </HomeCard>
       </div>
 
       <!-- Latest Transactions Timeline -->
