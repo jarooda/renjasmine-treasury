@@ -117,7 +117,9 @@ const balanceColorClass = computed(() => {
       </div>
 
       <template #footer>
-        <UButton variant="solid" block size="lg"> Lihat Detail </UButton>
+        <UButton variant="solid" block size="lg" class="cursor-pointer">
+          Lihat Detail
+        </UButton>
       </template>
     </UCard>
   </NuxtLink>

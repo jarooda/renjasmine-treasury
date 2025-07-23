@@ -282,6 +282,35 @@ const shouldCountPayment = (
 // Remove old functions - using simplified structure for monitor page
 // Payment details are handled in ResidentDetailModal component
 
+// Get color class for resident name based on payment status
+const getResidentNameColor = (resident: ParsedResident): string => {
+  // Skip color logic for empty residents
+  if (resident.name.includes("(Kosong)")) {
+    return "text-gray-900 dark:text-gray-100";
+  }
+
+  const summary = getPaymentSummary(resident);
+
+  // If no payments expected, use default color
+  if (summary.total === 0) {
+    return "text-gray-900 dark:text-gray-100";
+  }
+
+  const difference = summary.total - summary.paid;
+
+  // Determine color based on difference
+  if (difference <= 3) {
+    // 0-3 months behind: White (default)
+    return "text-gray-900 dark:text-gray-100";
+  } else if (difference <= 6) {
+    // 4-6 months behind: Warning (yellow/orange)
+    return "text-amber-600 dark:text-amber-400";
+  } else {
+    // 7+ months behind: Danger (red)
+    return "text-red-600 dark:text-red-400";
+  }
+};
+
 const getPaymentSummary = (resident: ParsedResident) => {
   let paid = 0;
   let total = 0;
@@ -503,15 +532,26 @@ watch(
         <UCard
           v-for="resident in filteredResidents"
           :key="resident.id"
-          class="cursor-pointer hover:shadow-md transition-shadow duration-200"
-          @click="selectResident(resident)"
+          :class="[
+            resident.name.includes('(Kosong)')
+              ? 'cursor-default'
+              : 'cursor-pointer hover:shadow-md transition-shadow duration-200',
+          ]"
+          @click="
+            !resident.name.includes('(Kosong)')
+              ? selectResident(resident)
+              : null
+          "
         >
           <div
             class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
           >
             <div class="flex-1 min-w-0">
               <h3
-                class="font-semibold text-gray-900 dark:text-gray-100 text-base sm:text-lg truncate"
+                :class="[
+                  'font-semibold text-base sm:text-lg truncate',
+                  getResidentNameColor(resident),
+                ]"
               >
                 {{ resident.name }}
               </h3>
@@ -522,7 +562,10 @@ watch(
                   {{ resident.perumahan }} - No. {{ resident.nomor }}
                 </p>
                 <span
-                  v-if="resident.startPembayaran"
+                  v-if="
+                    resident.startPembayaran &&
+                    !resident.name.includes('(Kosong)')
+                  "
                   class="inline-block w-fit px-2 py-0.5 text-xs sm:text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 rounded-full"
                 >
                   Mulai: {{ formatStartPembayaran(resident.startPembayaran) }}
@@ -530,7 +573,10 @@ watch(
               </div>
             </div>
             <div class="flex items-center justify-between sm:justify-end gap-3">
-              <div class="flex-1 sm:flex-none">
+              <div
+                v-if="!resident.name.includes('(Kosong)')"
+                class="flex-1 sm:flex-none"
+              >
                 <div class="flex items-center justify-between sm:block">
                   <div
                     class="text-sm sm:text-right font-medium text-gray-900 dark:text-gray-100"
@@ -556,6 +602,7 @@ watch(
                 </div>
               </div>
               <UIcon
+                v-if="!resident.name.includes('(Kosong)')"
                 name="i-mdi-chevron-right"
                 class="w-5 h-5 text-gray-400 flex-shrink-0"
               />
