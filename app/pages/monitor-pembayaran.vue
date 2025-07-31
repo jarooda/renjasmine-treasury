@@ -464,7 +464,7 @@ watch(
           Pantau status pembayaran kas warga dari tahun 2023 hingga
           {{ currentYear }}
         </p>
-        <p>
+        <p class="text-gray-600 dark:text-gray-400">
           Gunakan fitur pencarian, contoh: "Jalu" atau "13", untuk menemukan
           data warga
         </p>
