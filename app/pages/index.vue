@@ -151,7 +151,7 @@ if (historyError.value) {
           <p
             class="text-gray-600 dark:text-gray-400 text-sm sm:text-base lg:text-lg"
           >
-            Monitoring kas dan iuran warga
+            Monitoring kas dan iuran warga Perumahan Renjana dan Jasmine.
           </p>
         </div>
 
@@ -188,7 +188,7 @@ if (historyError.value) {
           card-class="sm:col-span-2 lg:col-span-1"
         >
           <p class="text-gray-500 dark:text-gray-400 text-sm h-[76px]">
-            Monitor pembayaran kas warga dari tahun
+            Pantau iuran anda maupun warga lainnya dengan mudah. Data dari tahun
             <span class="font-semibold">2023</span> hingga
             <span class="font-semibold">{{ currentYear }}</span
             >.

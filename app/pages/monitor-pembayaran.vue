@@ -464,6 +464,10 @@ watch(
           Pantau status pembayaran kas warga dari tahun 2023 hingga
           {{ currentYear }}
         </p>
+        <p>
+          Gunakan fitur pencarian, contoh: "Jalu" atau "13", untuk menemukan
+          data warga
+        </p>
       </div>
 
       <!-- Search and Filter -->
@@ -472,6 +476,7 @@ watch(
           <div class="flex-1">
             <UInput
               v-model="searchQuery"
+              class="w-full"
               placeholder="Cari nama warga atau nomor rumah..."
               icon="i-mdi-magnify"
             />
