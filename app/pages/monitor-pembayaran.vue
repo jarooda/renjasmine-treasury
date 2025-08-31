@@ -560,7 +560,7 @@ watch(
               >
                 <div class="flex items-center justify-between sm:block">
                   <div
-                    class="text-sm sm:text-right font-medium"
+                    class="text-sm sm:text-right font-medium min-w-fit"
                     :class="getResidentNameColor(resident)"
                   >
                     Belum bayar {{ getPaymentSummary(resident).unpaid }} bulan
