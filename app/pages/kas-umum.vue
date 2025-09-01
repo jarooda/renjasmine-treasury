@@ -45,6 +45,9 @@ const kasUmumData = reactive<KasUmum[]>([]);
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
 
+// Search state
+const searchQuery = ref("");
+
 const {
   data: kasUmumResponse,
   pending: isLoading,
@@ -63,25 +66,46 @@ if (error.value) {
   kasUmumData.splice(0, kasUmumData.length, ...kasUmumResponse.value.data);
 }
 
+// Computed properties for filtering and search
+const filteredData = computed(() => {
+  if (!searchQuery.value.trim()) {
+    return kasUmumData;
+  }
+
+  const query = searchQuery.value.toLowerCase().trim();
+  return kasUmumData.filter((transaction) => {
+    return (
+      formatDate(transaction.Tanggal)?.toLowerCase().includes(query) ||
+      transaction.Uraian?.toLowerCase().includes(query) ||
+      transaction.Nama?.toLowerCase().includes(query)
+    );
+  });
+});
+
 // Computed properties for pagination
 const totalPages = computed(() =>
-  Math.ceil(kasUmumData.length / itemsPerPage.value),
+  Math.ceil(filteredData.value.length / itemsPerPage.value),
 );
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value;
   const end = start + itemsPerPage.value;
-  return kasUmumData.slice(start, end);
+  return filteredData.value.slice(start, end);
 });
 
 const startItem = computed(
   () => (currentPage.value - 1) * itemsPerPage.value + 1,
 );
 const endItem = computed(() =>
-  Math.min(currentPage.value * itemsPerPage.value, kasUmumData.length),
+  Math.min(currentPage.value * itemsPerPage.value, filteredData.value.length),
 );
 
 // Watch for itemsPerPage changes to reset current page
 watch(itemsPerPage, () => {
+  currentPage.value = 1;
+});
+
+// Watch for search query changes to reset current page
+watch(searchQuery, () => {
   currentPage.value = 1;
 });
 </script>
@@ -116,14 +140,30 @@ watch(itemsPerPage, () => {
       <UCard>
         <template #header>
           <div
-            class="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0"
+            class="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0 sm:gap-3"
           >
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Data Transaksi Kas Umum
-            </h3>
-            <div
-              class="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4"
-            >
+            <!-- Search Bar -->
+            <div class="flex-1 max-w-md">
+              <UInput
+                v-model="searchQuery"
+                placeholder="Cari berdasarkan tanggal, uraian, atau nama..."
+                class="w-full"
+                icon="i-mdi-magnify"
+                size="md"
+              >
+                <template #trailing>
+                  <UButton
+                    v-show="searchQuery"
+                    color="neutral"
+                    variant="link"
+                    icon="i-mdi-close"
+                    :padded="false"
+                    @click="searchQuery = ''"
+                  />
+                </template>
+              </UInput>
+            </div>
+            <div class="flex items-center space-x-2 sm:space-x-4">
               <!-- Items per page selector -->
               <div
                 class="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400"
@@ -141,7 +181,11 @@ watch(itemsPerPage, () => {
                 class="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400"
               >
                 <UIcon name="i-mdi-table" class="w-4 h-4" />
-                <span>{{ kasUmumData.length }} transaksi</span>
+                <span v-if="searchQuery">
+                  {{ filteredData.length }} dari
+                  {{ kasUmumData.length }} transaksi
+                </span>
+                <span v-else>{{ filteredData.length }} transaksi</span>
               </div>
             </div>
           </div>
@@ -298,7 +342,9 @@ watch(itemsPerPage, () => {
                   </span>
                 </td>
               </tr>
-              <tr v-if="!isLoading && kasUmumData.length === 0">
+              <tr
+                v-if="!isLoading && filteredData.length === 0 && !searchQuery"
+              >
                 <td
                   colspan="9"
                   class="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
@@ -308,6 +354,26 @@ watch(itemsPerPage, () => {
                     class="w-12 h-12 mx-auto mb-2 opacity-50"
                   />
                   <p>Belum ada transaksi</p>
+                </td>
+              </tr>
+              <tr v-if="!isLoading && filteredData.length === 0 && searchQuery">
+                <td
+                  colspan="9"
+                  class="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
+                >
+                  <UIcon
+                    name="i-mdi-magnify"
+                    class="w-12 h-12 mx-auto mb-2 opacity-50"
+                  />
+                  <p>Tidak ada hasil untuk "{{ searchQuery }}"</p>
+                  <UButton
+                    variant="link"
+                    size="sm"
+                    class="mt-2"
+                    @click="searchQuery = ''"
+                  >
+                    Hapus pencarian
+                  </UButton>
                 </td>
               </tr>
             </tbody>
@@ -434,7 +500,7 @@ watch(itemsPerPage, () => {
           </div>
 
           <div
-            v-if="!isLoading && kasUmumData.length === 0"
+            v-if="!isLoading && filteredData.length === 0 && !searchQuery"
             class="text-center py-8"
           >
             <UIcon
@@ -442,6 +508,22 @@ watch(itemsPerPage, () => {
               class="w-12 h-12 mx-auto mb-2 opacity-50 text-gray-400"
             />
             <p class="text-gray-500 dark:text-gray-400">Belum ada transaksi</p>
+          </div>
+
+          <div
+            v-if="!isLoading && filteredData.length === 0 && searchQuery"
+            class="text-center py-8"
+          >
+            <UIcon
+              name="i-mdi-magnify"
+              class="w-12 h-12 mx-auto mb-2 opacity-50 text-gray-400"
+            />
+            <p class="text-gray-500 dark:text-gray-400 mb-2">
+              Tidak ada hasil untuk "{{ searchQuery }}"
+            </p>
+            <UButton variant="link" size="sm" @click="searchQuery = ''">
+              Hapus pencarian
+            </UButton>
           </div>
         </div>
 
@@ -455,7 +537,7 @@ watch(itemsPerPage, () => {
           >
             <span
               >Menampilkan {{ startItem }} - {{ endItem }} dari
-              {{ kasUmumData.length }} transaksi</span
+              {{ filteredData.length }} transaksi</span
             >
             <!-- Debug info - hidden on mobile -->
             <span
@@ -469,7 +551,7 @@ watch(itemsPerPage, () => {
             <UPagination
               v-model:page="currentPage"
               :page-count="totalPages"
-              :total="kasUmumData.length"
+              :total="filteredData.length"
               size="lg"
               show-last
               show-first
