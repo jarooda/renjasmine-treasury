@@ -32,6 +32,7 @@ type ParsedResident = {
   perumahan: string;
   nomor: string;
   startPembayaran?: string; // Format: "YYYY/M" (e.g., "2023/1", "2024/11")
+  selesaiPembayaran?: string; // Format: "YYYY/M" (e.g., "2025/2") - end of payment period
   payment: Record<string, string>; // Flat structure with column keys like "2023/1 Jan (tgl)", "2023/1 Jan (jml)"
 };
 
@@ -76,6 +77,7 @@ const parseResidentData = (rawData: MonitoringKas[]): ParsedResident[] => {
       perumahan: resident.Perumahan,
       nomor: resident["Nomor Rumah"],
       startPembayaran: resident["Start Pembayaran"] || "",
+      selesaiPembayaran: resident["Selesai Pembayaran"] || "",
       payment: {},
     };
 
@@ -89,6 +91,7 @@ const parseResidentData = (rawData: MonitoringKas[]): ParsedResident[] => {
           "Perumahan",
           "Nomor Rumah",
           "Start Pembayaran",
+          "Selesai Pembayaran",
         ].includes(column)
       ) {
         return;
@@ -214,10 +217,24 @@ const parseStartPeriod = (startPembayaran?: string) => {
   return { year: parseInt(yearStr), month: parseInt(monthStr) };
 };
 
-// Check if a payment period should be counted based on start date and current date
+// Parse end payment period (e.g., "2025/2") to get year and month
+const parseEndPeriod = (selesaiPembayaran?: string) => {
+  if (!selesaiPembayaran || !selesaiPembayaran.trim()) return null;
+
+  const match = selesaiPembayaran.trim().match(/^(\d{4})\/(\d{1,2})$/);
+  if (!match) return null;
+
+  const [, yearStr, monthStr] = match;
+  if (!yearStr || !monthStr) return null;
+
+  return { year: parseInt(yearStr), month: parseInt(monthStr) };
+};
+
+// Check if a payment period should be counted based on start date, end date, and current date
 const shouldCountPayment = (
   paymentKey: string,
   startPeriod: { year: number; month: number } | null,
+  endPeriod: { year: number; month: number } | null,
 ): boolean => {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
@@ -230,16 +247,23 @@ const shouldCountPayment = (
   const paymentYear = parseInt(match[1]!);
   const paymentMonth = parseInt(match[2]!);
 
-  // For special items (month > 12), only check year and start period
+  // For special items (month > 12), only check year, start period, and end period
   if (paymentMonth > 12) {
     // Don't count future years
     if (paymentYear > currentYear) return false;
 
-    // If no start period, count all items up to current year
-    if (!startPeriod) return paymentYear <= currentYear;
+    // Check end period constraint for special items
+    if (endPeriod && paymentYear > endPeriod.year) return false;
 
-    // Only count if it's from the start year or later
-    return paymentYear >= startPeriod.year;
+    // If no start period, count all items up to current year (and end period if set)
+    if (!startPeriod)
+      return paymentYear <= (endPeriod ? endPeriod.year : currentYear);
+
+    // Only count if it's from the start year or later, but before end period
+    return (
+      paymentYear >= startPeriod.year &&
+      (!endPeriod || paymentYear <= endPeriod.year)
+    );
   }
 
   // For regular monthly payments (month 1-12)
@@ -248,10 +272,17 @@ const shouldCountPayment = (
   if (paymentYear === currentYear && paymentMonth > currentMonthIndex)
     return false;
 
-  // If no start period, count all payments up to current month
+  // Check end period constraint first
+  if (endPeriod) {
+    if (paymentYear > endPeriod.year) return false;
+    if (paymentYear === endPeriod.year && paymentMonth > endPeriod.month)
+      return false;
+  }
+
+  // If no start period, count all payments up to current month (and end period if set)
   if (!startPeriod) return true;
 
-  // If payment year is after start year, count it
+  // If payment year is after start year, count it (already checked end period above)
   if (paymentYear > startPeriod.year) return true;
 
   // If payment year is before start year, don't count it
@@ -298,6 +329,7 @@ const getPaymentSummary = (resident: ParsedResident) => {
   let total = 0;
 
   const startPeriod = parseStartPeriod(resident.startPembayaran);
+  const endPeriod = parseEndPeriod(resident.selesaiPembayaran);
 
   // Helper function to check if payment amount is valid
   const isValidPayment = (amount: unknown): boolean => {
@@ -336,8 +368,8 @@ const getPaymentSummary = (resident: ParsedResident) => {
 
     const periodKey = keyMatch[1]!;
 
-    // Only count payments from start date onwards
-    if (shouldCountPayment(periodKey, startPeriod)) {
+    // Only count payments within the specified period range
+    if (shouldCountPayment(periodKey, startPeriod, endPeriod)) {
       total++;
       if (isValidPayment(columnValue)) {
         paid++;

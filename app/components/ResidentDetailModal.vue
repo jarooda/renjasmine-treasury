@@ -7,6 +7,7 @@ type ParsedResident = {
   perumahan: string;
   nomor: string;
   startPembayaran?: string; // Format: "YYYY/M" (e.g., "2023/1", "2024/11")
+  selesaiPembayaran?: string; // Format: "YYYY/M" (e.g., "2025/2") - end of payment period
   payment: Record<string, string>; // Flat structure with column keys like "2023/1 Jan (tgl)", "2023/1 Jan (jml)"
 };
 
@@ -45,10 +46,24 @@ const parseStartPeriod = (startPembayaran?: string) => {
   return { year: parseInt(yearStr), month: parseInt(monthStr) };
 };
 
-// Check if a payment period should be counted based on start date and current date
+// Parse end payment period (e.g., "2025/2") to get year and month
+const parseEndPeriod = (selesaiPembayaran?: string) => {
+  if (!selesaiPembayaran || !selesaiPembayaran.trim()) return null;
+
+  const match = selesaiPembayaran.trim().match(/^(\d{4})\/(\d{1,2})$/);
+  if (!match) return null;
+
+  const [, yearStr, monthStr] = match;
+  if (!yearStr || !monthStr) return null;
+
+  return { year: parseInt(yearStr), month: parseInt(monthStr) };
+};
+
+// Check if a payment period should be counted based on start date, end date, and current date
 const shouldCountPayment = (
   paymentKey: string,
   startPeriod: { year: number; month: number } | null,
+  endPeriod: { year: number; month: number } | null,
 ): boolean => {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
@@ -61,16 +76,23 @@ const shouldCountPayment = (
   const paymentYear = parseInt(match[1]!);
   const paymentMonth = parseInt(match[2]!);
 
-  // For special items (month > 12), only check year and start period
+  // For special items (month > 12), only check year, start period, and end period
   if (paymentMonth > 12) {
     // Don't count future years
     if (paymentYear > currentYear) return false;
 
-    // If no start period, count all items up to current year
-    if (!startPeriod) return paymentYear <= currentYear;
+    // Check end period constraint for special items
+    if (endPeriod && paymentYear > endPeriod.year) return false;
 
-    // Only count if it's from the start year or later
-    return paymentYear >= startPeriod.year;
+    // If no start period, count all items up to current year (and end period if set)
+    if (!startPeriod)
+      return paymentYear <= (endPeriod ? endPeriod.year : currentYear);
+
+    // Only count if it's from the start year or later, but before end period
+    return (
+      paymentYear >= startPeriod.year &&
+      (!endPeriod || paymentYear <= endPeriod.year)
+    );
   }
 
   // For regular monthly payments (month 1-12)
@@ -79,10 +101,17 @@ const shouldCountPayment = (
   if (paymentYear === currentYear && paymentMonth > currentMonthIndex)
     return false;
 
-  // If no start period, count all payments up to current month
+  // Check end period constraint first
+  if (endPeriod) {
+    if (paymentYear > endPeriod.year) return false;
+    if (paymentYear === endPeriod.year && paymentMonth > endPeriod.month)
+      return false;
+  }
+
+  // If no start period, count all payments up to current month (and end period if set)
   if (!startPeriod) return true;
 
-  // If payment year is after start year, count it
+  // If payment year is after start year, count it (already checked end period above)
   if (paymentYear > startPeriod.year) return true;
 
   // If payment year is before start year, don't count it
@@ -92,8 +121,11 @@ const shouldCountPayment = (
   return paymentMonth >= startPeriod.month;
 };
 
-// Helper function to check if payment is in future month
-const isFuturePayment = (paymentKey: string): boolean => {
+// Helper function to check if payment is in future month or after end period
+const isFuturePayment = (
+  paymentKey: string,
+  endPeriod: { year: number; month: number } | null = null,
+): boolean => {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
   const currentMonthIndex = currentDate.getMonth() + 1;
@@ -104,10 +136,20 @@ const isFuturePayment = (paymentKey: string): boolean => {
   const paymentYear = parseInt(match[1]!);
   const paymentMonth = parseInt(match[2]!);
 
-  // For special items (month > 12), not considered future
-  if (paymentMonth > 12) return false;
+  // For special items (month > 12), check against end period if available
+  if (paymentMonth > 12) {
+    if (endPeriod && paymentYear > endPeriod.year) return true;
+    return false;
+  }
 
-  // Check if it's a future payment
+  // Check if it's after end period first
+  if (endPeriod) {
+    if (paymentYear > endPeriod.year) return true;
+    if (paymentYear === endPeriod.year && paymentMonth > endPeriod.month)
+      return true;
+  }
+
+  // Check if it's a future payment (after current month)
   if (paymentYear > currentYear) return true;
   if (paymentYear === currentYear && paymentMonth > currentMonthIndex)
     return true;
@@ -120,6 +162,7 @@ const getPaymentSummary = (resident: ParsedResident) => {
   let total = 0;
 
   const startPeriod = parseStartPeriod(resident.startPembayaran);
+  const endPeriod = parseEndPeriod(resident.selesaiPembayaran);
 
   // Parse new column format: "YYYY/M MonthName (jml)" or "YYYY/13 Rapat RT (jml)"
   Object.entries(resident.payment).forEach(([columnKey, columnValue]) => {
@@ -143,8 +186,8 @@ const getPaymentSummary = (resident: ParsedResident) => {
 
     const periodKey = keyMatch[1]!;
 
-    // Only count payments from start date onwards
-    if (shouldCountPayment(periodKey, startPeriod)) {
+    // Only count payments within the specified period range
+    if (shouldCountPayment(periodKey, startPeriod, endPeriod)) {
       total++;
       if (isValidPayment(columnValue)) {
         paid++;
@@ -170,6 +213,7 @@ const getPaymentHistory = (resident: ParsedResident) => {
   }> = [];
 
   const startPeriod = parseStartPeriod(resident.startPembayaran);
+  const endPeriod = parseEndPeriod(resident.selesaiPembayaran);
 
   // Helper function to get month name from number
   const getMonthName = (monthNum: number): string => {
@@ -242,8 +286,8 @@ const getPaymentHistory = (resident: ParsedResident) => {
     }
 
     const isPaid = isValidPayment(data.amount);
-    const shouldCount = shouldCountPayment(periodKey, startPeriod);
-    const isFuture = isFuturePayment(periodKey);
+    const shouldCount = shouldCountPayment(periodKey, startPeriod, endPeriod);
+    const isFuture = isFuturePayment(periodKey, endPeriod);
 
     payments.push({
       period: displayPeriod,
@@ -394,6 +438,32 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
   const monthName = months[parsed.month - 1] || `Bulan ${parsed.month}`;
   return `${monthName} ${parsed.year}`;
 };
+
+// Helper function to format end payment period for display
+const formatEndPeriodDisplay = (selesaiPembayaran?: string): string => {
+  if (!selesaiPembayaran) return "";
+
+  const parsed = parseEndPeriod(selesaiPembayaran);
+  if (!parsed) return selesaiPembayaran;
+
+  const months = [
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember",
+  ];
+
+  const monthName = months[parsed.month - 1] || `Bulan ${parsed.month}`;
+  return `${monthName} ${parsed.year}`;
+};
 </script>
 
 <template>
@@ -437,12 +507,23 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
             Riwayat Pembayaran
           </h4>
           <div
-            v-if="resident.startPembayaran"
+            v-if="resident.startPembayaran || resident.selesaiPembayaran"
             class="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg"
           >
-            <p class="text-sm text-blue-800 dark:text-blue-200">
+            <p
+              v-if="resident.startPembayaran"
+              class="text-sm text-blue-800 dark:text-blue-200"
+            >
               <strong>Mulai Pembayaran:</strong>
               {{ formatStartPeriodDisplay(resident.startPembayaran) }}
+            </p>
+            <p
+              v-if="resident.selesaiPembayaran"
+              class="text-sm text-blue-800 dark:text-blue-200"
+              :class="{ 'mt-1': resident.startPembayaran }"
+            >
+              <strong>Selesai Pembayaran:</strong>
+              {{ formatEndPeriodDisplay(resident.selesaiPembayaran) }}
             </p>
           </div>
 
@@ -494,7 +575,7 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
                     :class="[
                       payment.isPaid
                         ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                        : payment.isFuture || payment.shouldCount
+                        : payment.shouldCount
                           ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
                           : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',
                       !payment.shouldCount ? 'opacity-50' : '',
@@ -505,14 +586,14 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
                         :name="
                           payment.isPaid
                             ? 'i-mdi-check-circle'
-                            : payment.isFuture || payment.shouldCount
+                            : payment.shouldCount
                               ? 'i-mdi-clock-outline'
                               : 'i-mdi-minus-circle-outline'
                         "
                         :class="
                           payment.isPaid
                             ? 'text-green-600 dark:text-green-400'
-                            : payment.isFuture || payment.shouldCount
+                            : payment.shouldCount
                               ? 'text-red-600 dark:text-red-400'
                               : 'text-gray-400 dark:text-gray-500'
                         "
@@ -538,7 +619,7 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
                         :class="
                           payment.isPaid
                             ? 'text-green-600 dark:text-green-400'
-                            : payment.isFuture || payment.shouldCount
+                            : payment.shouldCount
                               ? 'text-red-600 dark:text-red-400'
                               : 'text-gray-500 dark:text-gray-400'
                         "
@@ -546,7 +627,7 @@ const formatStartPeriodDisplay = (startPembayaran?: string): string => {
                         {{
                           payment.isPaid
                             ? formatCurrency(payment.amount)
-                            : payment.isFuture || payment.shouldCount
+                            : payment.shouldCount
                               ? "Belum Bayar"
                               : "Tidak Masuk Hitungan"
                         }}
