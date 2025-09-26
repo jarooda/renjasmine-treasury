@@ -103,15 +103,11 @@ if (error.value) {
 }
 
 type FiveLatest = {
-  Nomor: string;
   Tanggal: string;
-  Uraian: string;
-  Nama: string;
-  "Nomor Rumah": string;
-  Kategori: string;
-  Masuk: string;
-  Keluar: string;
-  Saldo: string;
+  Deskripsi: string;
+  Jumlah: string;
+  Jenis: string;
+  Pos: string;
 };
 
 const fiveLatest = ref<FiveLatest[]>([]);
@@ -223,7 +219,7 @@ if (historyError.value) {
             <h3
               class="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100"
             >
-              5 Transaksi Terakhir
+              Transaksi Terakhir
             </h3>
             <UIcon
               name="i-mdi-clock-outline"
@@ -234,7 +230,7 @@ if (historyError.value) {
 
         <div class="space-y-2 sm:space-y-4">
           <USkeleton v-if="isHistoryLoading" class="w-full h-[500px]" />
-          <TransactionItem
+          <LatestTransactionItem
             v-for="(transaction, index) in fiveLatest"
             v-else
             :key="index"
