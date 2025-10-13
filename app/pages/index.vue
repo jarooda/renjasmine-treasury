@@ -73,13 +73,6 @@ type WebSummary = {
   Theme: string;
 };
 
-// Helper function to validate theme
-const isValidTheme = (
-  theme: string,
-): theme is "blue" | "cyan" | "green" | "red" => {
-  return ["blue", "cyan", "green", "red"].includes(theme);
-};
-
 const webSummaries = ref<WebSummary[]>([]);
 const totalBalance = ref(0);
 
@@ -172,9 +165,7 @@ if (historyError.value) {
       </div>
 
       <!-- Kas Cards -->
-      <div
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8"
-      >
+      <div class="grid grid-cols-1 mb-5">
         <HomeCard
           title="Monitoring Kas"
           icon="i-mdi-security-camera"
@@ -190,7 +181,11 @@ if (historyError.value) {
             >.
           </p>
         </HomeCard>
+      </div>
 
+      <div
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8"
+      >
         <template v-if="isSummaryLoading">
           <USkeleton
             v-for="count in 3"
@@ -207,7 +202,7 @@ if (historyError.value) {
           :balance="summary.Saldo"
           :icon="`i-mdi-${summary.Icon}`"
           :detail-link="summary['Path Detail']"
-          :theme="isValidTheme(summary.Theme) ? summary.Theme : 'blue'"
+          :theme="summary.Theme as any"
           card-class="sm:col-span-2 lg:col-span-1"
         />
       </div>
