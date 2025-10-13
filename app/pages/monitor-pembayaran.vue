@@ -331,7 +331,7 @@ const getPaymentSummary = (resident: ParsedResident) => {
   const startPeriod = parseStartPeriod(resident.startPembayaran);
   const endPeriod = parseEndPeriod(resident.selesaiPembayaran);
 
-  // Helper function to check if payment amount is valid
+  // Helper function to check if payment amount is valid or if it's a reason string (e.g., "Kabur", "Pindah")
   const isValidPayment = (amount: unknown): boolean => {
     if (!amount || typeof amount !== "string") return false;
     const cleanAmount = amount.trim();
@@ -342,8 +342,18 @@ const getPaymentSummary = (resident: ParsedResident) => {
       cleanAmount === "-"
     )
       return false;
+
+    // Try to parse as number first
     const numericValue = parseFloat(cleanAmount.replace(/[^\d.-]/g, ""));
-    return !isNaN(numericValue) && numericValue > 0;
+
+    // If it's a valid positive number, count it as paid
+    if (!isNaN(numericValue) && numericValue > 0) {
+      return true;
+    }
+
+    // If it's not a number but has meaningful text (reason), also count it as "paid" (case closed with reason)
+    // This allows strings like "Kabur", "Pindah", etc. to be treated as resolved cases
+    return cleanAmount.length > 0 && isNaN(numericValue);
   };
 
   // Parse new column format: "YYYY/M MonthName (jml)" or "YYYY/13 Rapat RT (jml)"

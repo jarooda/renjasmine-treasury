@@ -8,6 +8,7 @@ type ParsedResident = {
   nomor: string;
   startPembayaran?: string; // Format: "YYYY/M" (e.g., "2023/1", "2024/11")
   selesaiPembayaran?: string; // Format: "YYYY/M" (e.g., "2025/2") - end of payment period
+  keterangan?: string; // Reason for closing payment (e.g., "Kabur", "Pindah", etc.)
   payment: Record<string, string>; // Flat structure with column keys like "2023/1 Jan (tgl)", "2023/1 Jan (jml)"
 };
 
@@ -29,8 +30,18 @@ const isValidPayment = (amount: unknown): boolean => {
     cleanAmount === "-"
   )
     return false;
+
+  // Try to parse as number first
   const numericValue = parseFloat(cleanAmount.replace(/[^\d.-]/g, ""));
-  return !isNaN(numericValue) && numericValue > 0;
+
+  // If it's a valid positive number, count it as paid
+  if (!isNaN(numericValue) && numericValue > 0) {
+    return true;
+  }
+
+  // If it's not a number but has meaningful text (reason), also count it as "paid" (case closed with reason)
+  // This allows strings like "Kabur", "Pindah", etc. to be treated as resolved cases
+  return cleanAmount.length > 0 && isNaN(numericValue);
 };
 
 // Parse start payment period (e.g., "2023/1", "2024/11") to get year and month
