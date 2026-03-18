@@ -3,7 +3,7 @@ import { formatCurrency } from "~/utils/formatters";
 import type { PropType } from "vue";
 
 // Define theme type
-type Theme = "blue" | "cyan" | "green" | "red" | "fuchsia";
+type Theme = "blue" | "cyan" | "green" | "red" | "fuchsia" | "yellow";
 
 // Props definition
 const props = defineProps({
@@ -31,7 +31,9 @@ const props = defineProps({
     type: String as PropType<Theme>,
     default: "blue" as Theme,
     validator: (value: unknown): value is Theme =>
-      ["blue", "cyan", "green", "red", "fuchsia"].includes(value as string),
+      ["blue", "cyan", "green", "red", "fuchsia", "yellow"].includes(
+        value as string,
+      ),
   },
   cardClass: {
     type: String,
@@ -47,6 +49,7 @@ const iconBgClass = computed(() => {
     green: "bg-green-50 dark:bg-green-900/30",
     red: "bg-red-50 dark:bg-red-900/30",
     fuchsia: "bg-fuchsia-50 dark:bg-fuchsia-900/30",
+    yellow: "bg-yellow-50 dark:bg-yellow-900/30",
   };
   return themes[props.theme] || themes.blue;
 });
@@ -58,6 +61,7 @@ const iconColorClass = computed(() => {
     green: "text-green-600 dark:text-green-400",
     red: "text-red-600 dark:text-red-400",
     fuchsia: "text-fuchsia-600 dark:text-fuchsia-400",
+    yellow: "text-yellow-600 dark:text-yellow-400",
   };
   return themes[props.theme] || themes.blue;
 });
@@ -69,6 +73,7 @@ const balanceColorClass = computed(() => {
     green: "text-green-600 dark:text-green-400",
     red: "text-red-600 dark:text-red-400",
     fuchsia: "text-fuchsia-600 dark:text-fuchsia-400",
+    yellow: "text-yellow-600 dark:text-yellow-400",
   };
   return themes[props.theme] || themes.blue;
 });

@@ -1,12 +1,27 @@
 import { google } from "googleapis";
-import { JWT } from "google-auth-library";
 import logger from "~~/server/utils/log";
+import { snakeCase } from "jalutils";
+
+const SHEET_IDS: Record<string, number> = {
+  web_summary: 1179277890,
+  monitoring_kas_2023: 484500319,
+  buku_kas: 0,
+  kas_rt: 456509783,
+  kas_pompa_jasmine: 1130447780,
+  kas_pompa_air: 1225692475,
+  kas_keamanan: 1350633016,
+  web_5_latest: 725770813,
+};
 
 export default defineEventHandler(async (event) => {
   try {
     // Get query parameters
     const query = getQuery(event);
     const requestedSheet = (query.sheet as string) || null;
+    const requestedSheetKey = requestedSheet ? snakeCase(requestedSheet) : null;
+    const requestedSheetId = requestedSheetKey
+      ? SHEET_IDS[requestedSheetKey]
+      : null;
 
     // Try without authentication first (for public sheets)
     let sheets;
@@ -18,12 +33,12 @@ export default defineEventHandler(async (event) => {
       // Use authentication if available
       try {
         const credentials = JSON.parse(serviceAccountKey);
-        const auth = new JWT({
+        const auth = new google.auth.JWT({
           email: credentials.client_email,
           key: credentials.private_key,
           scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
         });
-        sheets = google.sheets({ version: "v4", auth: auth as JWT });
+        sheets = google.sheets({ version: "v4", auth });
         logger.info("Using authenticated access");
       } catch (authError) {
         logger.error("Authentication failed, trying public access:", authError);
@@ -46,22 +61,28 @@ export default defineEventHandler(async (event) => {
     let targetSheet;
 
     if (requestedSheet) {
-      // Find sheet by name
+      if (requestedSheetId === undefined) {
+        const availableSheets = Object.keys(SHEET_IDS);
+        throw createError({
+          statusCode: 404,
+          statusMessage: `Sheet key "${requestedSheetKey}" not mapped (from query "${requestedSheet}"). Available sheet keys: ${availableSheets.join(", ")}`,
+        });
+      }
+
+      // Find sheet by mapped Google Sheet tab ID (gid)
       targetSheet = spreadsheetInfo.data.sheets?.find(
-        (sheet) =>
-          sheet.properties?.title?.toLowerCase() ===
-          requestedSheet.toLowerCase(),
+        (sheet) => sheet.properties?.sheetId === requestedSheetId,
       );
 
       if (!targetSheet) {
-        // Return available sheets if requested sheet not found
+        // Return available sheet metadata if mapped sheet ID not found in spreadsheet
         const availableSheets =
           spreadsheetInfo.data.sheets
-            ?.map((s) => s.properties?.title)
+            ?.map((s) => `${s.properties?.title} (${s.properties?.sheetId})`)
             .filter(Boolean) || [];
         throw createError({
           statusCode: 404,
-          statusMessage: `Sheet "${requestedSheet}" not found. Available sheets: ${availableSheets.join(", ")}`,
+          statusMessage: `Mapped sheet ID ${requestedSheetId} for "${requestedSheet}" not found. Available sheets: ${availableSheets.join(", ")}`,
         });
       }
     } else {

@@ -97,6 +97,15 @@ watch(
                 >
                   Monitor Kas
                 </NuxtLink>
+                <NuxtLink
+                  to="/kas-pompa-jasmine"
+                  class="nav-link"
+                  :class="{
+                    'nav-link-active': $route.path === '/kas-pompa-jasmine',
+                  }"
+                >
+                  Kas Pompa Jasmine
+                </NuxtLink>
               </div>
             </div>
 
