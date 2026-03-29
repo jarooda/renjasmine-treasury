@@ -152,6 +152,7 @@ const perumahanOptions = computed(() => {
 const sortOptions = computed(() => [
   { label: "Urutan Default", value: "default" },
   { label: "Tunggakan Terbanyak", value: "tunggakan" },
+  { label: "Terakhir Bayar", value: "terakhir-bayar" },
 ]);
 
 const filteredResidents = computed(() => {
@@ -185,6 +186,29 @@ const filteredResidents = computed(() => {
       const summaryA = getPaymentSummary(a);
       const summaryB = getPaymentSummary(b);
       return summaryB.unpaid - summaryA.unpaid;
+    });
+  } else if (sortBy.value === "terakhir-bayar") {
+    filtered = [...filtered].sort((a, b) => {
+      // Always put '(Kosong)' at the bottom
+      const aKosong = a.name.includes("(Kosong)");
+      const bKosong = b.name.includes("(Kosong)");
+      if (aKosong && !bKosong) return 1;
+      if (!aKosong && bKosong) return -1;
+      if (aKosong && bKosong) return 0;
+
+      // Prioritize residents with outstanding payments first
+      const summaryA = getPaymentSummary(a);
+      const summaryB = getPaymentSummary(b);
+      const aHasOutstanding = summaryA.unpaid > 0;
+      const bHasOutstanding = summaryB.unpaid > 0;
+
+      if (aHasOutstanding && !bHasOutstanding) return -1;
+      if (!aHasOutstanding && bHasOutstanding) return 1;
+
+      // Among those with outstanding payments, sort by highest month gap first
+      const monthsA = getLatestPaymentMonthsAgoValue(a);
+      const monthsB = getLatestPaymentMonthsAgoValue(b);
+      return monthsB - monthsA;
     });
   } else {
     // Default sort: keep original order, but move '(Kosong)' to bottom
@@ -394,6 +418,157 @@ const getPaymentSummary = (resident: ParsedResident) => {
   };
 };
 
+const getLatestPaymentDate = (resident: ParsedResident): string => {
+  // Reuse the same payment validation logic used by summary.
+  const isValidPayment = (amount: unknown): boolean => {
+    if (!amount || typeof amount !== "string") return false;
+    const cleanAmount = amount.trim();
+    if (
+      !cleanAmount ||
+      cleanAmount === "" ||
+      cleanAmount === "0" ||
+      cleanAmount === "-"
+    )
+      return false;
+
+    const numericValue = parseFloat(cleanAmount.replace(/[^\d.-]/g, ""));
+    if (!isNaN(numericValue) && numericValue > 0) {
+      return true;
+    }
+
+    return cleanAmount.length > 0 && isNaN(numericValue);
+  };
+
+  let latestPeriodScore = -1;
+  let latestDate = "";
+
+  Object.entries(resident.payment).forEach(([columnKey, columnValue]) => {
+    if (!columnKey.endsWith("(jml)")) return;
+    if (!isValidPayment(columnValue)) return;
+
+    const paymentKeyMatch = columnKey.match(/^(.+)\s+\(jml\)$/);
+    if (!paymentKeyMatch) return;
+
+    const paymentKey = paymentKeyMatch[1]!;
+    if (paymentKey.includes("Rapat RT")) return;
+
+    const keyMatch = paymentKey.match(/^(\d{4})\/(\d+)/);
+    if (!keyMatch) return;
+
+    const paymentYear = parseInt(keyMatch[1]!);
+    const paymentMonth = parseInt(keyMatch[2]!);
+    const periodScore = paymentYear * 100 + paymentMonth;
+
+    const dateKey = `${paymentKey} (tgl)`;
+    const rawDate = resident.payment[dateKey]?.trim() || "";
+    if (!rawDate) return;
+
+    if (periodScore > latestPeriodScore) {
+      latestPeriodScore = periodScore;
+      latestDate = rawDate;
+    }
+  });
+
+  return latestDate;
+};
+
+const parseDateToken = (token: string): Date | null => {
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+
+  const monthMap: Record<string, number> = {
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    mei: 4,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    ags: 7,
+    agu: 7,
+    aug: 7,
+    sep: 8,
+    okt: 9,
+    oct: 9,
+    nov: 10,
+    des: 11,
+    dec: 11,
+  };
+
+  const textDateMatch = trimmed.match(
+    /^(\d{1,2})[-/\s]([A-Za-z]{3,})[-/\s](\d{2,4})$/,
+  );
+  if (textDateMatch) {
+    const day = parseInt(textDateMatch[1]!);
+    const monthKey = textDateMatch[2]!.toLowerCase().slice(0, 3);
+    const rawYear = parseInt(textDateMatch[3]!);
+    const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+    const month = monthMap[monthKey];
+
+    if (month !== undefined) {
+      const date = new Date(year, month, day);
+      if (!isNaN(date.getTime())) return date;
+    }
+  }
+
+  const numericDateMatch = trimmed.match(
+    /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/,
+  );
+  if (numericDateMatch) {
+    const day = parseInt(numericDateMatch[1]!);
+    const month = parseInt(numericDateMatch[2]!) - 1;
+    const rawYear = parseInt(numericDateMatch[3]!);
+    const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+    const date = new Date(year, month, day);
+    if (!isNaN(date.getTime())) return date;
+  }
+
+  const fallback = new Date(trimmed);
+  return isNaN(fallback.getTime()) ? null : fallback;
+};
+
+const extractLatestDateFromText = (rawDate: string): Date | null => {
+  if (!rawDate || !rawDate.trim()) return null;
+
+  const tokens = rawDate
+    .split(/[+,;|\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  let latestDate: Date | null = null;
+
+  for (const token of tokens) {
+    const parsed = parseDateToken(token);
+    if (!parsed) continue;
+    if (!latestDate || parsed.getTime() > latestDate.getTime()) {
+      latestDate = parsed;
+    }
+  }
+
+  return latestDate;
+};
+
+const getLatestPaymentMonthsAgoText = (resident: ParsedResident): string => {
+  const monthsDiff = getLatestPaymentMonthsAgoValue(resident);
+  if (monthsDiff <= 0) return "";
+  return `Terakhir bayar ${monthsDiff} Bulan lalu`;
+};
+
+const getLatestPaymentMonthsAgoValue = (resident: ParsedResident): number => {
+  const latestDateText = getLatestPaymentDate(resident);
+  const latestDate = extractLatestDateFromText(latestDateText);
+  if (!latestDate) return -1;
+
+  const now = new Date();
+  const monthsDiff =
+    (now.getFullYear() - latestDate.getFullYear()) * 12 +
+    (now.getMonth() - latestDate.getMonth());
+
+  if (monthsDiff <= 0) return 0;
+  return monthsDiff;
+};
+
 // Removed old _getPaymentHistory function - payment history is handled in ResidentDetailModal
 
 const selectResident = async (resident: ParsedResident) => {
@@ -573,7 +748,7 @@ watch(
           "
         >
           <div
-            class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+            class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
           >
             <div class="flex-1 min-w-0">
               <h3
@@ -591,25 +766,37 @@ watch(
                   {{ resident.perumahan }} - No. {{ resident.nomor }}
                 </p>
               </div>
-            </div>
-            <div class="flex items-center justify-between sm:justify-end gap-3">
               <div
-                v-if="
-                  !resident.name.includes('(Kosong)') &&
-                  getPaymentSummary(resident).unpaid > 0
-                "
-                class="flex-1 sm:flex-none"
+                v-if="!resident.name.includes('(Kosong)')"
+                class="mt-2 flex flex-wrap items-center gap-2"
               >
-                <div class="flex items-center justify-between sm:block">
-                  <div
-                    class="text-sm sm:text-right font-medium min-w-fit"
-                    :class="getResidentNameColor(resident)"
-                  >
-                    Belum bayar {{ getPaymentSummary(resident).unpaid }} bulan
-                  </div>
+                <span
+                  class="inline-flex items-center rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-2.5 py-1 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300"
+                >
+                  Terakhir bayar: {{ getLatestPaymentDate(resident) || "-" }}
+                </span>
+                <span
+                  v-if="
+                    getLatestPaymentMonthsAgoText(resident) &&
+                    getPaymentSummary(resident).unpaid > 0
+                  "
+                  class="inline-flex items-center rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-2.5 py-1 text-xs sm:text-sm font-bold text-amber-700 dark:text-amber-300"
+                >
+                  {{ getLatestPaymentMonthsAgoText(resident) }}
+                </span>
+                <div
+                  v-if="
+                    !resident.name.includes('(Kosong)') &&
+                    getPaymentSummary(resident).unpaid > 0
+                  "
+                  class="inline-flex items-center rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-2.5 py-1 text-sm font-medium"
+                  :class="getResidentNameColor(resident)"
+                >
+                  Belum bayar {{ getPaymentSummary(resident).unpaid }} bulan
                 </div>
               </div>
-              <div v-else class="w-1 h-1" />
+            </div>
+            <div class="flex items-start justify-end sm:pt-1">
               <UIcon
                 v-if="!resident.name.includes('(Kosong)')"
                 name="i-mdi-chevron-right"
