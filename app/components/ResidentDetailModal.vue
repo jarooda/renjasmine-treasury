@@ -213,6 +213,133 @@ const getPaymentSummary = (resident: ParsedResident) => {
   };
 };
 
+const getLatestPaymentDate = (resident: ParsedResident): string => {
+  let latestPeriodScore = -1;
+  let latestDate = "";
+
+  Object.entries(resident.payment).forEach(([columnKey, columnValue]) => {
+    if (!columnKey.endsWith("(jml)")) return;
+    if (!isValidPayment(columnValue)) return;
+
+    const paymentKeyMatch = columnKey.match(/^(.+)\s+\(jml\)$/);
+    if (!paymentKeyMatch) return;
+
+    const paymentKey = paymentKeyMatch[1]!;
+
+    // Keep latest payment date focused on monthly kas columns.
+    if (paymentKey.includes("Rapat RT")) return;
+
+    const keyMatch = paymentKey.match(/^(\d{4})\/(\d+)/);
+    if (!keyMatch) return;
+
+    const paymentYear = parseInt(keyMatch[1]!);
+    const paymentMonth = parseInt(keyMatch[2]!);
+    const periodScore = paymentYear * 100 + paymentMonth;
+
+    const dateKey = `${paymentKey} (tgl)`;
+    const rawDate = resident.payment[dateKey]?.trim() || "";
+    if (!rawDate) return;
+
+    if (periodScore > latestPeriodScore) {
+      latestPeriodScore = periodScore;
+      latestDate = rawDate;
+    }
+  });
+
+  return latestDate;
+};
+
+const parseDateToken = (token: string): Date | null => {
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+
+  const monthMap: Record<string, number> = {
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    mei: 4,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    ags: 7,
+    agu: 7,
+    aug: 7,
+    sep: 8,
+    okt: 9,
+    oct: 9,
+    nov: 10,
+    des: 11,
+    dec: 11,
+  };
+
+  const textDateMatch = trimmed.match(
+    /^(\d{1,2})[-/\s]([A-Za-z]{3,})[-/\s](\d{2,4})$/,
+  );
+  if (textDateMatch) {
+    const day = parseInt(textDateMatch[1]!);
+    const monthKey = textDateMatch[2]!.toLowerCase().slice(0, 3);
+    const rawYear = parseInt(textDateMatch[3]!);
+    const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+    const month = monthMap[monthKey];
+
+    if (month !== undefined) {
+      const date = new Date(year, month, day);
+      if (!isNaN(date.getTime())) return date;
+    }
+  }
+
+  const numericDateMatch = trimmed.match(
+    /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/,
+  );
+  if (numericDateMatch) {
+    const day = parseInt(numericDateMatch[1]!);
+    const month = parseInt(numericDateMatch[2]!) - 1;
+    const rawYear = parseInt(numericDateMatch[3]!);
+    const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+    const date = new Date(year, month, day);
+    if (!isNaN(date.getTime())) return date;
+  }
+
+  const fallback = new Date(trimmed);
+  return isNaN(fallback.getTime()) ? null : fallback;
+};
+
+const extractLatestDateFromText = (rawDate: string): Date | null => {
+  if (!rawDate || !rawDate.trim()) return null;
+
+  const tokens = rawDate
+    .split(/[+,;|\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  let latestDate: Date | null = null;
+
+  for (const token of tokens) {
+    const parsed = parseDateToken(token);
+    if (!parsed) continue;
+    if (!latestDate || parsed.getTime() > latestDate.getTime()) {
+      latestDate = parsed;
+    }
+  }
+
+  return latestDate;
+};
+
+const getLatestPaymentMonthsAgoText = (resident: ParsedResident): string => {
+  const latestDateText = getLatestPaymentDate(resident);
+  const latestDate = extractLatestDateFromText(latestDateText);
+  if (!latestDate) return "";
+
+  const now = new Date();
+  const monthsDiff =
+    (now.getFullYear() - latestDate.getFullYear()) * 12 +
+    (now.getMonth() - latestDate.getMonth());
+
+  if (monthsDiff <= 0) return "";
+  return `Terakhir bayar ${monthsDiff} Bulan lalu`;
+};
+
 const getPaymentHistory = (resident: ParsedResident) => {
   const payments: Array<{
     period: string;
@@ -510,6 +637,28 @@ const formatEndPeriodDisplay = (selesaiPembayaran?: string): string => {
               Belum Bayar
             </div>
           </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span
+            class="inline-flex items-center rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 px-2.5 py-1 text-xs sm:text-sm font-semibold text-emerald-700 dark:text-emerald-300"
+          >
+            Terakhir bayar: {{ getLatestPaymentDate(resident) || "-" }}
+          </span>
+          <span
+            v-if="
+              getLatestPaymentMonthsAgoText(resident) &&
+              getPaymentSummary(resident).unpaid > 0
+            "
+            class="inline-flex items-center rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-2.5 py-1 text-xs sm:text-sm font-bold text-amber-700 dark:text-amber-300"
+          >
+            {{ getLatestPaymentMonthsAgoText(resident) }}
+          </span>
+          <span
+            v-if="getPaymentSummary(resident).unpaid > 0"
+            class="inline-flex items-center rounded-md bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 px-2.5 py-1 text-xs sm:text-sm font-medium text-rose-700 dark:text-rose-300"
+          >
+            Belum bayar {{ getPaymentSummary(resident).unpaid }} bulan
+          </span>
         </div>
 
         <!-- Payment Timeline -->
