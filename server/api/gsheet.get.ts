@@ -10,6 +10,7 @@ const SHEET_IDS: Record<string, number> = {
   kas_pompa_jasmine: 1130447780,
   kas_pompa_air: 1225692475,
   kas_keamanan: 1350633016,
+  kas_event: 1015886599,
   web_5_latest: 725770813,
 };
 

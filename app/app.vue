@@ -106,6 +106,15 @@ watch(
                 >
                   Kas Pompa Jasmine
                 </NuxtLink>
+                <NuxtLink
+                  to="/kas-event"
+                  class="nav-link"
+                  :class="{
+                    'nav-link-active': $route.path === '/kas-event',
+                  }"
+                >
+                  Kas Event
+                </NuxtLink>
               </div>
             </div>
 
@@ -216,6 +225,29 @@ watch(
                 >
                   <UIcon name="i-mdi-chart-line" class="w-4 h-4" />
                   Monitor Kas
+                </NuxtLink>
+                <NuxtLink
+                  to="/kas-pompa-jasmine"
+                  class="mobile-nav-link"
+                  :class="{
+                    'mobile-nav-link-active':
+                      $route.path === '/kas-pompa-jasmine',
+                  }"
+                  @click="mobileMenuOpen = false"
+                >
+                  <UIcon name="i-mdi-water-pump" class="w-4 h-4" />
+                  Kas Pompa Jasmine
+                </NuxtLink>
+                <NuxtLink
+                  to="/kas-event"
+                  class="mobile-nav-link"
+                  :class="{
+                    'mobile-nav-link-active': $route.path === '/kas-event',
+                  }"
+                  @click="mobileMenuOpen = false"
+                >
+                  <UIcon name="i-mdi-calendar-star" class="w-4 h-4" />
+                  Kas Event
                 </NuxtLink>
               </div>
             </div>
