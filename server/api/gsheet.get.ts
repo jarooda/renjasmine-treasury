@@ -4,6 +4,7 @@ import { snakeCase } from "jalutils";
 
 const SHEET_IDS: Record<string, number> = {
   web_summary: 1179277890,
+  web_monthly: 1914662507,
   monitoring_kas_2023: 484500319,
   buku_kas: 0,
   kas_rt: 456509783,

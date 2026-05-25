@@ -95,6 +95,41 @@ if (error.value) {
   }, 0);
 }
 
+type MonthlyRow = Record<string, string>;
+
+const monthlySummary = ref({ date: "", pemasukan: "0", pengeluaran: "0" });
+
+const monthlyTitle = computed(() => {
+  const raw = monthlySummary.value.date;
+  if (!raw) return "Ringkasan Bulan Ini";
+  const parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) return `Ringkasan ${raw}`;
+  return `Ringkasan ${parsed.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}`;
+});
+
+const {
+  data: monthlyData,
+  pending: isMonthlyLoading,
+  error: monthlyError,
+} = await useFetch<SheetResponse<MonthlyRow[]>>("/api/gsheet", {
+  query: { sheet: "Web Monthly" },
+});
+
+if (monthlyError.value) {
+  showError();
+} else if (monthlyData.value) {
+  // Sheet layout: A1=date, C1=pemasukan, C2=pengeluaran
+  // API treats row 1 as headers, row 2+ as data
+  const headers = monthlyData.value.headers;
+  const data = monthlyData.value.data;
+  const pemasukan = headers[2] ?? "0";
+  monthlySummary.value = {
+    date: headers[0] || "",
+    pemasukan,
+    pengeluaran: data[0]?.[pemasukan] || "0",
+  };
+}
+
 type FiveLatest = {
   Tanggal: string;
   Deskripsi: string;
@@ -163,6 +198,43 @@ if (historyError.value) {
           </h2>
         </div>
       </div>
+
+      <!-- Monthly Summary -->
+      <UCard class="mb-5 sm:mb-6">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <h3
+              class="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100"
+            >
+              {{ monthlyTitle }}
+            </h3>
+            <UIcon
+              name="i-mdi-calendar-month"
+              class="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 dark:text-gray-400"
+            />
+          </div>
+        </template>
+
+        <USkeleton v-if="isMonthlyLoading" class="w-full h-[80px]" />
+        <div v-else class="grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">
+              Pemasukan
+            </p>
+            <p class="text-xl font-bold text-green-600 dark:text-green-400">
+              {{ formatCurrency(monthlySummary.pemasukan) }}
+            </p>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mb-1">
+              Pengeluaran
+            </p>
+            <p class="text-xl font-bold text-red-600 dark:text-red-400">
+              {{ formatCurrency(monthlySummary.pengeluaran) }}
+            </p>
+          </div>
+        </div>
+      </UCard>
 
       <!-- Kas Cards -->
       <div class="grid grid-cols-1 mb-5">
