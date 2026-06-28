@@ -287,11 +287,11 @@ watch(
                 class="flex flex-col sm:flex-row items-center sm:space-x-4 space-y-2 sm:space-y-0 text-sm"
               >
                 <a
-                  href="mailto:jaluwibowoaji@gmail.com"
+                  href="mailto:me@jaluwibowo.id"
                   class="text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors flex items-center space-x-1"
                 >
                   <UIcon name="i-mdi-email" class="w-3 h-3" />
-                  <span>jaluwibowoaji@gmail.com</span>
+                  <span>me@jaluwibowo.id</span>
                 </a>
                 <a
                   href="https://jaluwibowo.id"

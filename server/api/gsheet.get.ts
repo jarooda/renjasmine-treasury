@@ -20,6 +20,15 @@ export default defineEventHandler(async (event) => {
     // Get query parameters
     const query = getQuery(event);
     const requestedSheet = (query.sheet as string) || null;
+    // Optional 1-indexed header row (defaults to row 1). Useful for sheets
+    // where the table doesn't start at the top (e.g. Web Monthly detail at A4).
+    const headerRowParam = query.headerRow
+      ? parseInt(query.headerRow as string, 10)
+      : 1;
+    const headerRowIndex =
+      Number.isFinite(headerRowParam) && headerRowParam > 0
+        ? headerRowParam - 1
+        : 0;
     const requestedSheetKey = requestedSheet ? snakeCase(requestedSheet) : null;
     const requestedSheetId = requestedSheetKey
       ? SHEET_IDS[requestedSheetKey]
@@ -123,15 +132,18 @@ export default defineEventHandler(async (event) => {
       };
     }
 
-    // Convert rows to objects using first row as headers
-    const headers = values[0] as string[];
-    const data = values.slice(1).map((row) => {
-      const obj: Record<string, string> = {};
-      headers.forEach((header, index) => {
-        obj[header] = row[index] || "";
+    // Convert rows to objects using the header row as keys
+    const headers = (values[headerRowIndex] as string[]) || [];
+    const data = values
+      .slice(headerRowIndex + 1)
+      .filter((row) => row.some((cell) => cell !== "" && cell != null))
+      .map((row) => {
+        const obj: Record<string, string> = {};
+        headers.forEach((header, index) => {
+          obj[header] = row[index] || "";
+        });
+        return obj;
       });
-      return obj;
-    });
 
     return {
       success: true,

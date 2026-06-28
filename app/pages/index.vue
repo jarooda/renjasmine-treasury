@@ -234,6 +234,19 @@ if (historyError.value) {
             </p>
           </div>
         </div>
+
+        <template #footer>
+          <NuxtLink to="/ringkasan-bulan">
+            <UButton
+              variant="outline"
+              block
+              size="lg"
+              trailing-icon="i-mdi-arrow-right"
+            >
+              Lihat Rincian Bulan Ini
+            </UButton>
+          </NuxtLink>
+        </template>
       </UCard>
 
       <!-- Kas Cards -->
