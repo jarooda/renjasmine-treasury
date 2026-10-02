@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { formatCurrency } from "~/utils/formatters";
+import {
+  buildWhatsappMessage,
+  monthName,
+  type MonthlyExport,
+} from "~/utils/waExport";
 
 // Meta tags
 useHead({
@@ -156,6 +161,81 @@ if (historyError.value) {
 } else if (historyData.value) {
   fiveLatest.value = historyData.value.data;
 }
+
+// WhatsApp export
+const now = new Date();
+const exportMonth = ref(now.getMonth() + 1);
+const exportYear = ref(currentYear);
+// Months after the current one can't be exported yet
+const monthOptions = computed(() =>
+  Array.from({ length: 12 }, (_, index) => ({
+    label: monthName(index + 1),
+    value: index + 1,
+    disabled:
+      exportYear.value === currentYear && index + 1 > now.getMonth() + 1,
+  })),
+);
+const yearOptions = Array.from(
+  { length: currentYear - 2023 + 1 },
+  (_, index) => ({
+    label: String(currentYear - index),
+    value: currentYear - index,
+  }),
+);
+
+const waMessage = ref("");
+const isExporting = ref(false);
+
+const isFutureExport = computed(
+  () =>
+    exportYear.value * 12 + exportMonth.value >
+    currentYear * 12 + now.getMonth() + 1,
+);
+
+const generateWaMessage = async () => {
+  if (isFutureExport.value) {
+    useToast().add({
+      title: "Bulan belum berjalan",
+      description: "Pilih bulan ini atau bulan sebelumnya",
+      color: "warning",
+    });
+    return;
+  }
+  isExporting.value = true;
+  try {
+    const data = await $fetch<MonthlyExport>("/api/monthly-export", {
+      query: { month: exportMonth.value, year: exportYear.value },
+    });
+    waMessage.value = buildWhatsappMessage(data, window.location.origin);
+  } catch {
+    showError();
+  } finally {
+    isExporting.value = false;
+  }
+};
+
+// Reset the preview when the period changes so it never mismatches the picker
+watch([exportMonth, exportYear], () => {
+  waMessage.value = "";
+});
+
+const waShareLink = computed(
+  () => `https://wa.me/?text=${encodeURIComponent(waMessage.value)}`,
+);
+
+const copyWaMessage = async () => {
+  const toast = useToast();
+  try {
+    await navigator.clipboard.writeText(waMessage.value);
+    toast.add({ title: "Pesan disalin", color: "success" });
+  } catch {
+    toast.add({
+      title: "Gagal menyalin",
+      description: "Silakan salin pesan secara manual",
+      color: "error",
+    });
+  }
+};
 </script>
 
 <template>
@@ -324,6 +404,84 @@ if (historyError.value) {
               Lihat Semua Transaksi
             </UButton>
           </NuxtLink>
+        </template>
+      </UCard>
+
+      <!-- WhatsApp Export -->
+      <UCard class="mt-5 sm:mt-6">
+        <template #header>
+          <div class="flex items-center justify-between">
+            <h3
+              class="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100"
+            >
+              Export ke WhatsApp
+            </h3>
+            <UIcon
+              name="i-mdi-whatsapp"
+              class="w-5 h-5 sm:w-6 sm:h-6 text-gray-500 dark:text-gray-400"
+            />
+          </div>
+        </template>
+
+        <div class="space-y-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            Pilih bulan dan tahun, lalu buat pesan rekap arus kas untuk
+            dibagikan ke grup warga.
+          </p>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <USelect
+              v-model="exportMonth"
+              :items="monthOptions"
+              icon="i-mdi-calendar-month"
+              class="w-full sm:w-48"
+            />
+            <USelect
+              v-model="exportYear"
+              :items="yearOptions"
+              class="w-full sm:w-32"
+            />
+            <UButton
+              icon="i-mdi-message-text-outline"
+              :loading="isExporting"
+              class="justify-center"
+              @click="generateWaMessage"
+            >
+              Buat Pesan
+            </UButton>
+          </div>
+
+          <UTextarea
+            v-if="waMessage"
+            v-model="waMessage"
+            :rows="14"
+            autoresize
+            :maxrows="24"
+            class="w-full font-mono"
+          />
+        </div>
+
+        <template v-if="waMessage" #footer>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <UButton
+              variant="outline"
+              block
+              size="lg"
+              icon="i-mdi-content-copy"
+              @click="copyWaMessage"
+            >
+              Salin Pesan
+            </UButton>
+            <UButton
+              :to="waShareLink"
+              target="_blank"
+              color="success"
+              block
+              size="lg"
+              icon="i-mdi-whatsapp"
+            >
+              Kirim ke WhatsApp
+            </UButton>
+          </div>
         </template>
       </UCard>
     </main>

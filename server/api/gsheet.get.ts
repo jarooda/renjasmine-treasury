@@ -1,19 +1,10 @@
-import { google } from "googleapis";
 import logger from "~~/server/utils/log";
+import {
+  SHEET_IDS,
+  getSheetsClient,
+  getSpreadsheetId,
+} from "~~/server/utils/sheets";
 import { snakeCase } from "jalutils";
-
-const SHEET_IDS: Record<string, number> = {
-  web_summary: 1179277890,
-  web_monthly: 1914662507,
-  monitoring_kas_2023: 484500319,
-  buku_kas: 0,
-  kas_rt: 456509783,
-  kas_pompa_jasmine: 1130447780,
-  kas_pompa_air: 1225692475,
-  kas_keamanan: 1350633016,
-  kas_event: 1015886599,
-  web_5_latest: 725770813,
-};
 
 export default defineEventHandler(async (event) => {
   try {
@@ -34,35 +25,8 @@ export default defineEventHandler(async (event) => {
       ? SHEET_IDS[requestedSheetKey]
       : null;
 
-    // Try without authentication first (for public sheets)
-    let sheets;
-
-    // Check if we have authentication credentials
-    const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-
-    if (serviceAccountKey) {
-      // Use authentication if available
-      try {
-        const credentials = JSON.parse(serviceAccountKey);
-        const auth = new google.auth.JWT({
-          email: credentials.client_email,
-          key: credentials.private_key,
-          scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-        });
-        sheets = google.sheets({ version: "v4", auth });
-        logger.info("Using authenticated access");
-      } catch (authError) {
-        logger.error("Authentication failed, trying public access:", authError);
-        sheets = google.sheets({ version: "v4" });
-      }
-    } else {
-      // Try without authentication (for public sheets)
-      sheets = google.sheets({ version: "v4" });
-      logger.warn("No service account key found, trying public access");
-    }
-
-    // Your spreadsheet ID
-    const spreadsheetId = process.env.GOOGLE_SPREADSHEET_ID;
+    const sheets = getSheetsClient();
+    const spreadsheetId = getSpreadsheetId();
 
     // First, get the spreadsheet metadata to find the correct sheet name
     const spreadsheetInfo = await sheets.spreadsheets.get({
